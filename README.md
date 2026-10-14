@@ -32,39 +32,33 @@ npm run start:lan    # курат жана HTTPS'те иштетет; телеф
 
 ### Docker (VPS / сервер) + nginx
 
-Серверде Docker, Docker Compose жана nginx болушу керек. **Тиркеме сыртка эч бир порт ачпайт** — ал серверде `127.0.0.1:8787`'де гана угат, сырттан кирүү nginx аркылуу гана.
+Серверде Docker, Docker Compose жана nginx болушу керек. **Тиркеме сыртка эч бир порт ачпайт** — ал серверде `127.0.0.1:8009`'да гана угат (`APP_PORT`), сырттан кирүү nginx аркылуу гана.
 
 ```bash
 git clone https://github.com/AuArgen/speakhand.git && cd speakhand
 cp .env.example .env
 
-docker compose up -d --build                           # тиркеме → 127.0.0.1:8787 (сыртка жабык)
+docker compose up -d --build                           # тиркеме → 127.0.0.1:8009 (сыртка жабык)
 docker compose --profile tts up -d --build             # + кыргызча үн (MMS-TTS, Docker ички тармагында гана)
 ```
 
-**nginx — https://sh.primeactive.net** (домен Cloudflare проксиси аркылуу өтөт):
+**nginx + certbot — https://sh.primeactive.net:**
 
-1. Cloudflare → SSL/TLS → Overview: режим **Full (strict)**.
-2. Cloudflare → SSL/TLS → Origin Server → **Create Certificate** (`sh.primeactive.net`) → серверде сактаңыз:
-   ```bash
-   sudo mkdir -p /etc/ssl/cloudflare
-   sudo nano /etc/ssl/cloudflare/sh.primeactive.net.pem    # Origin Certificate
-   sudo nano /etc/ssl/cloudflare/sh.primeactive.net.key    # Private Key
-   sudo chmod 600 /etc/ssl/cloudflare/sh.primeactive.net.key
-   ```
-3. nginx:
-   ```bash
-   sudo cp deploy/nginx/speakhand.conf /etc/nginx/sites-available/speakhand.conf
-   sudo ln -s /etc/nginx/sites-available/speakhand.conf /etc/nginx/sites-enabled/
-   sudo nginx -t && sudo systemctl reload nginx
-   ```
+```bash
+sudo cp deploy/nginx/speakhand.conf /etc/nginx/sites-available/speakhand.conf
+sudo ln -s /etc/nginx/sites-available/speakhand.conf /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d sh.primeactive.net             # 443 + сертификат + http → https'ти certbot өзү кошот
+```
 
-Конфигде: http → https, WebSocket (`/ws`), колдонуучунун чыныгы IP'си Cloudflare'дин `CF-Connecting-IP`'синен (Cloudflare'дин расмий IP диапазондорунан келгенде гана — жасалма башкы четке кагылат). nginx 1.18 (Ubuntu 22.04) жана азыркы stable версияларында текшерилген. Сервердин A-жазуусу Cloudflare DNS'те кызгылт сары булут (Proxied) абалында болушу керек.
+Конфигде 80-порт гана (SSL'ди certbot кошот): тиркемеге проксилөө (`127.0.0.1:8009`, `.env`'деги `APP_PORT` менен бирдей болушу керек), WebSocket (`/ws`), колдонуучунун чыныгы IP'си (Cloudflare аркылуу болсо `CF-Connecting-IP`, Cloudflare'дин IP'леринен гана). `certbot install --nginx --redirect` менен текшерилген: certbot'тон кийин да `nginx -t` таза, сервердеги башка сайттарга тийбейт.
+
+Домен Cloudflare'де **Proxied** (кызгылт сары булут) болсо: certbot ишке ашпай калса — `sh` жазуусун убактылуу **DNS only** кылып, certbot'ту кайра иштетиңиз; сертификат алынгандан кийин Cloudflare SSL/TLS режими **Full (strict)** болушу керек («Flexible» болсо багыттоо чексиз айланат).
 
 - Бөлмөлөр жана котормо кэши `suylo-data` томунда сакталат — контейнер жаңырса да жоголбойт.
 - Серверде Claude CLI жок — тиркеме AI'сыз режимде иштейт (даяр котормолор + сөздүк эрежелери); бул кадимки абал.
 - Абалы: `docker compose ps` (healthy болушу керек), логдор: `docker compose logs -f app`, жаңыртуу: `git pull && docker compose up -d --build`.
-- Портту текшерүү: `ss -ltnp | grep 8787` → `127.0.0.1:8787` гана болушу керек (`0.0.0.0` эмес).
+- Портту текшерүү: `ss -ltnp | grep 8009` → `127.0.0.1:8009` гана болушу керек (`0.0.0.0` эмес).
 
 ### Кошумча
 
