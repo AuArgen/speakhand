@@ -159,6 +159,20 @@ function getStorage(): Storage | null {
   }
 }
 
+/**
+ * Бөлмөдөгү катышуучунун ID'си: түзмөк + роль. Ошондо бир браузердин эки өтмөгүндөгү сүйлөөчү
+ * жана жаңсоочу эки башка адам болот (бир компьютерде сыноо); бир ролдогу эки өтмөк — бир адам.
+ */
+export function participantId(role: Role): string {
+  return `${getClientId().slice(0, 56)}:${role}`;
+}
+
+/** Ушул түзмөктүн катышуучуларыбы (кайсы ролдо болсо да)? Эски форматтагы (ролсуз) ID да кирет. */
+export function isThisDevice(clientId: string): boolean {
+  const device = getClientId().slice(0, 56);
+  return clientId === device || clientId.startsWith(`${device}:`);
+}
+
 /** Түзмөктүн туруктуу ID'си (localStorage'та сакталат). */
 export function getClientId(): string {
   const ls = getStorage();
@@ -202,7 +216,7 @@ export async function createRoom(role: Role, name: string): Promise<RoomSummary>
   const r = await fetch(apiUrl("/api/rooms"), {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ role, name, clientId: getClientId() }),
+    body: JSON.stringify({ role, name, clientId: participantId(role) }),
   });
   if (!r.ok) throw new Error(await readError(r));
   return (await r.json()) as RoomSummary;
@@ -293,7 +307,7 @@ export class RoomClient {
     this.code = normalizeCode(opts.code);
     this.name = opts.name;
     this.role = opts.role;
-    this.clientId = getClientId();
+    this.clientId = participantId(opts.role);
   }
 
   get state(): ConnectionState {

@@ -575,11 +575,15 @@ test("RoomClient: туташуу, билдирүү, status, кезек, кайр
   Object.defineProperty(globalThis, "location", { value: new URL(srv.url + "/"), configurable: true, writable: true });
 
   const lib = await import("../src/lib/room.ts");
-  const { RoomClient, createRoom, checkRoom, getClientId, fetchPhrases, fetchNetInfo } = lib;
+  const { RoomClient, createRoom, checkRoom, getClientId, participantId, fetchPhrases, fetchNetInfo } = lib;
 
-  const idA = getClientId();
-  assert.ok(idA.length >= 8);
-  assert.equal(getClientId(), idA, "ID туруктуу");
+  const device = getClientId();
+  assert.ok(device.length >= 8);
+  assert.equal(getClientId(), device, "ID туруктуу");
+  // Катышуучу = түзмөк + роль: бир браузердеги сүйлөөчү менен жаңсоочу — эки башка адам
+  const idA = participantId("speaker");
+  assert.equal(idA, `${device}:speaker`);
+  assert.notEqual(participantId("signer"), idA);
 
   const room = await createRoom("speaker", "Айбек");
   assert.match(room.code, /^[1-9]\d{5}$/);
@@ -624,7 +628,7 @@ test("RoomClient: туташуу, билдирүү, status, кезек, кайр
 
   // Экинчи «түзмөк»: башка clientId
   mem.delete("suylo.clientId");
-  const idB = getClientId();
+  const idB = participantId("signer");
   assert.notEqual(idB, idA);
   const b = new RoomClient({ code: room.code, name: "Нургүл", role: "signer" });
   const logB = record(b);

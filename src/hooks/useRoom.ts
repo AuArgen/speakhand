@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   RoomClient,
-  getClientId,
+  isThisDevice,
+  participantId,
   type ActivityStatus,
   type ConnectionState,
   type MessageVia,
@@ -77,7 +78,8 @@ function merge(prev: TimelineItem[], incoming: RoomMessage[], me: string): Timel
 }
 
 export function useRoom(opts: RoomOptions | null): RoomHook {
-  const me = useMemo(() => getClientId(), []);
+  const role = opts?.role ?? null;
+  const me = useMemo(() => (role ? participantId(role) : ""), [role]);
   const [gen, setGen] = useState(0);
   const [state, setState] = useState<ConnectionState>("connecting");
   const [room, setRoom] = useState<RoomSummary | null>(null);
@@ -91,7 +93,6 @@ export function useRoom(opts: RoomOptions | null): RoomHook {
   const welcomed = useRef(false);
 
   const code = opts?.code ?? null;
-  const role = opts?.role ?? null;
   const name = opts?.name ?? "";
 
   useEffect(() => {
@@ -178,19 +179,26 @@ export function useRoom(opts: RoomOptions | null): RoomHook {
 
   const reconnect = useCallback(() => setGen((g) => g + 1), []);
 
+  // Ушул түзмөктүн башка ролдогу офлайн жазуусу (мис. ролду алмаштыргандан кийин) маектеш эмес.
+  // Онлайн болсо — бул ошол эле компьютердеги экинчи өтмөк (сыноо), маектеш катары көрсөтүлөт.
+  const visible = useMemo(
+    () => participants.filter((p) => p.clientId === me || !isThisDevice(p.clientId) || p.online),
+    [participants, me],
+  );
+
   const partner = useMemo(() => {
-    const others = participants.filter((p) => p.clientId !== me);
+    const others = visible.filter((p) => p.clientId !== me);
     if (!others.length) return null;
     const opposite = others.filter((p) => p.role !== role);
     const pool = opposite.length ? opposite : others;
     return pool.find((p) => p.online) ?? pool[0];
-  }, [participants, me, role]);
+  }, [visible, me, role]);
 
   return {
     state,
     room,
     you,
-    participants,
+    participants: visible,
     partner,
     partnerStatus: partner?.online ? partner.status : "idle",
     messages,

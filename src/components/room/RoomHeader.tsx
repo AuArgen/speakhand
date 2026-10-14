@@ -42,9 +42,9 @@ export function RoomHeader(props: {
       <div className="rm-people" aria-label="Катышуучулар">
         {me && <Person p={me} me />}
         {others.length ? others.map((p) => <Person key={p.clientId} p={p} />) : (
-          <button className="rm-person waiting" onClick={props.onInvite}>
+          <button className="rm-person waiting" onClick={props.onInvite} title="Экинчи адам али кире элек — кодду же QR'ды бериңиз">
             <span className="rm-avatar"><span className="spinner" /></span>
-            <span className="rm-person-text"><b>Күтүүдө…</b><small>чакыруу →</small></span>
+            <span className="rm-person-text"><b>Маектеш күтүлүүдө</b><small>кодду бериңиз →</small></span>
           </button>
         )}
       </div>
