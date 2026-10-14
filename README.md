@@ -42,17 +42,24 @@ docker compose up -d --build                           # тиркеме → 127.
 docker compose --profile tts up -d --build             # + кыргызча үн (MMS-TTS, Docker ички тармагында гана)
 ```
 
-**nginx (HTTPS — телефондордун камерасы/микрофону үчүн зарыл):**
+**nginx — https://sh.primeactive.net** (домен Cloudflare проксиси аркылуу өтөт):
 
-```bash
-sudo cp deploy/nginx/speakhand.conf /etc/nginx/sites-available/speakhand.conf
-sudo nano /etc/nginx/sites-available/speakhand.conf    # example.kg → өз домениңиз
-sudo ln -s /etc/nginx/sites-available/speakhand.conf /etc/nginx/sites-enabled/
-sudo certbot certonly --webroot -w /var/www/html -d <домен>   # Let's Encrypt
-sudo nginx -t && sudo systemctl reload nginx
-```
+1. Cloudflare → SSL/TLS → Overview: режим **Full (strict)**.
+2. Cloudflare → SSL/TLS → Origin Server → **Create Certificate** (`sh.primeactive.net`) → серверде сактаңыз:
+   ```bash
+   sudo mkdir -p /etc/ssl/cloudflare
+   sudo nano /etc/ssl/cloudflare/sh.primeactive.net.pem    # Origin Certificate
+   sudo nano /etc/ssl/cloudflare/sh.primeactive.net.key    # Private Key
+   sudo chmod 600 /etc/ssl/cloudflare/sh.primeactive.net.key
+   ```
+3. nginx:
+   ```bash
+   sudo cp deploy/nginx/speakhand.conf /etc/nginx/sites-available/speakhand.conf
+   sudo ln -s /etc/nginx/sites-available/speakhand.conf /etc/nginx/sites-enabled/
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
 
-Конфигде: http → https, WebSocket (`/ws`, узак туташуулар), колдонуучунун чыныгы IP'си (`X-Forwarded-For` — алдоого болбойт). nginx 1.18 (Ubuntu 22.04) жана азыркы stable версияларында текшерилген.
+Конфигде: http → https, WebSocket (`/ws`), колдонуучунун чыныгы IP'си Cloudflare'дин `CF-Connecting-IP`'синен (Cloudflare'дин расмий IP диапазондорунан келгенде гана — жасалма башкы четке кагылат). nginx 1.18 (Ubuntu 22.04) жана азыркы stable версияларында текшерилген. Сервердин A-жазуусу Cloudflare DNS'те кызгылт сары булут (Proxied) абалында болушу керек.
 
 - Бөлмөлөр жана котормо кэши `suylo-data` томунда сакталат — контейнер жаңырса да жоголбойт.
 - Серверде Claude CLI жок — тиркеме AI'сыз режимде иштейт (даяр котормолор + сөздүк эрежелери); бул кадимки абал.
