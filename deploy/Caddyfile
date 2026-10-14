@@ -1,0 +1,6 @@
+# Caddy: DOMAIN үчүн автоматтык HTTPS (Let's Encrypt) жана тиркемеге проксилөө.
+# WebSocket (/ws) өзүнөн өзү иштейт. Домен жок болсо: <сервердин-IP>.sslip.io колдонуңуз.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:8787
+}

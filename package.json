@@ -1,0 +1,46 @@
+{
+  "name": "speak-jest",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Кыргыз жест тили котормочу: үн/текст → 3D аватар, жест → текст/үн",
+  "scripts": {
+    "dev": "tsx watch --ignore src --ignore public --ignore tools --ignore server/data server/index.ts --dev",
+    "dev:lan": "tsx watch --ignore src --ignore public --ignore tools --ignore server/data server/index.ts --dev --lan",
+    "build": "tsc --noEmit && vite build",
+    "start": "vite build && tsx server/index.ts",
+    "start:lan": "vite build && tsx server/index.ts --lan",
+    "typecheck": "tsc --noEmit",
+    "test:rooms": "tsx server/rooms.test.ts",
+    "models": "node scripts/fetch-models.mjs",
+    "tts": "powershell -ExecutionPolicy Bypass -File tts/run.ps1",
+    "tts:setup": "powershell -ExecutionPolicy Bypass -File tts/setup.ps1",
+    "dev:all": "concurrently -k -n app,tts -c cyan,yellow \"npm:dev\" \"npm:tts\"",
+    "phrasebook": "tsx scripts/build-phrasebook.ts",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d"
+  },
+  "dependencies": {
+    "selfsigned": "5.5.0",
+    "tsx": "4.23.15",
+    "ws": "8.21.3"
+  },
+  "devDependencies": {
+    "@mediapipe/tasks-vision": "1.1.0",
+    "@types/node": "26.6.5",
+    "@types/qrcode": "1.5.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.186.0",
+    "@types/ws": "8.18.1",
+    "@vitejs/plugin-react": "6.1.2",
+    "concurrently": "10.0.6",
+    "idb-keyval": "6.3.0",
+    "qrcode": "1.5.4",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "three": "0.186.1",
+    "typescript": "5.9.3",
+    "vite": "8.3.4"
+  }
+}

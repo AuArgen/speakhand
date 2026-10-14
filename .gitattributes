@@ -1,0 +1,13 @@
+# Текст файлдары репозиторийде LF менен (Linux серверде Docker туура иштеши үчүн)
+* text=auto eol=lf
+*.ps1 text eol=crlf
+
+# Экилик файлдар — эч качан өзгөртүлбөсүн
+*.wasm binary
+*.task binary
+*.glb binary
+*.blend binary
+*.bin binary
+*.gz binary
+*.png binary
+*.jpg binary

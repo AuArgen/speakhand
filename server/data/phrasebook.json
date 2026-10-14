@@ -1,0 +1,1195 @@
+{
+ "version": 1,
+ "model": "sonnet",
+ "vocabulary": 1249,
+ "generatedAt": "2026-10-14T05:43:23.319Z",
+ "items": [
+  {
+   "text": "Саламатсызбы",
+   "gloss": [
+    "САЛАМ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Салам",
+   "gloss": [
+    "САЛАМ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Саламатсызбы! Сиз кандайсыз?",
+   "gloss": [
+    "САЛАМ",
+    "СИЗ",
+    "КАНДАЙ"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Кандайсың?",
+   "gloss": [
+    "СЕН",
+    "КАНДАЙ"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Жакшымын, рахмат",
+   "gloss": [
+    "МЕН",
+    "ЖАКШЫ",
+    "РАХМАТ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Рахмат, мен жакшымын",
+   "gloss": [
+    "РАХМАТ",
+    "МЕН",
+    "ЖАКШЫ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен жакшы эмесмин",
+   "gloss": [
+    "МЕН",
+    "ЖАКШЫ",
+    "ЖОК"
+   ],
+   "question": false,
+   "negation": true
+  },
+  {
+   "text": "Кайырлы таң",
+   "gloss": [
+    "ЭРТЕҢ ЖАКШЫ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Кайырлы күн",
+   "gloss": [
+    "КҮН ЖАКШЫ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Кайырлы кеч",
+   "gloss": [
+    "КЕЧ ЖАКШЫ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Кош болуңуз",
+   "gloss": [
+    "ХОШ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Жакшы калыңыз",
+   "gloss": [
+    "ЖАКШЫ",
+    "ХОШ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Көрүшкөнчө",
+   "gloss": [
+    "ХОШ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Эртең көрүшөбүз",
+   "gloss": [
+    "ЭРТЕҢ",
+    "ХОШ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Рахмат",
+   "gloss": [
+    "РАХМАТ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Чоң рахмат",
+   "gloss": [
+    "РАХМАТ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Эч нерсе эмес",
+   "gloss": [
+    "ЭЧТЕКЕ ЭМЕС"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Кечиресиз",
+   "gloss": [
+    "КЕЧИР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Кечирип коюңуз",
+   "gloss": [
+    "КЕЧИР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Сураныч",
+   "gloss": [
+    "ӨТҮНӨМ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Менин атым Айгүл",
+   "gloss": [
+    "МЕНИН",
+    "АТ",
+    "#АЙГҮЛ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Сиздин атыңыз ким?",
+   "gloss": [
+    "СИЗДИН",
+    "АТ",
+    "КИМ"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Сенин атың ким?",
+   "gloss": [
+    "СЕНИН",
+    "АТ",
+    "КИМ"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Таанышканыма кубанычтуумун",
+   "gloss": [
+    "ТААНЫШКАНЫМА КУУНДУМ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен Бишкектенмин",
+   "gloss": [
+    "МЕН",
+    "#БИШКЕК"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Сиз кайдансыз?",
+   "gloss": [
+    "СИЗ",
+    "КАЙДАН"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Мен студентмин",
+   "gloss": [
+    "МЕН",
+    "СТУДЕНТ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен мугалиммин",
+   "gloss": [
+    "МЕН",
+    "МУГАЛИМ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен жумушчумун",
+   "gloss": [
+    "МЕН",
+    "ЖУМУШЧУ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Сиз канча жаштасыз?",
+   "gloss": [
+    "СИЗ",
+    "ЖАШ",
+    "КАНЧА"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Мен он сегиз жаштамын",
+   "gloss": [
+    "МЕН",
+    "18",
+    "ЖАШ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен уга албайм",
+   "gloss": [
+    "МЕН",
+    "УГА",
+    "ЖОК"
+   ],
+   "question": false,
+   "negation": true
+  },
+  {
+   "text": "Мен жаңсоо тилинде сүйлөйм",
+   "gloss": [
+    "МЕН",
+    "ЖАНСОО",
+    "ТИЛ",
+    "СҮЙЛӨ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Жаңсоо тилин билесизби?",
+   "gloss": [
+    "ЖАНСОО",
+    "ТИЛ",
+    "БИЛ"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Жайыраак сүйлөңүзчү",
+   "gloss": [
+    "АКЫРЫН",
+    "СҮЙЛӨ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Кайра айтып бериңизчи",
+   "gloss": [
+    "КАЙРА",
+    "АЙТ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен түшүнбөдүм",
+   "gloss": [
+    "МЕН",
+    "ТҮШҮНГӨН ЖОКМУН"
+   ],
+   "question": false,
+   "negation": true
+  },
+  {
+   "text": "Мен түшүндүм",
+   "gloss": [
+    "МЕН",
+    "ТҮШҮНДҮМ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Жазып бериңизчи",
+   "gloss": [
+    "ЖАЗ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Менин үй-бүлөм чоң",
+   "gloss": [
+    "МЕНИН",
+    "ҮЙ-БҮЛӨ",
+    "КӨП"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Менин апам бар",
+   "gloss": [
+    "МЕНИН",
+    "АПА",
+    "БАР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Менин атам бар",
+   "gloss": [
+    "МЕНИН",
+    "АТА",
+    "БАР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Менин агам жана эжем бар",
+   "gloss": [
+    "МЕНИН",
+    "АГА",
+    "ЭЖЕ",
+    "БАР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Менин иним бар",
+   "gloss": [
+    "МЕНИН",
+    "АГА",
+    "БАР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Менин досум бар",
+   "gloss": [
+    "МЕНИН",
+    "ДОС",
+    "БАР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Апам үйдө",
+   "gloss": [
+    "АПА",
+    "ҮЙ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Атам жумушта",
+   "gloss": [
+    "АТА",
+    "ЖУМУШ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Сиздин балдарыңыз барбы?",
+   "gloss": [
+    "СИЗДИН",
+    "БАЛДАР",
+    "БАР"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Суу ичким келет",
+   "gloss": [
+    "МЕН",
+    "СУУ",
+    "ИЧ",
+    "КААЛОО"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен ачкамын",
+   "gloss": [
+    "МЕН",
+    "АЧКА"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Тамак жегим келет",
+   "gloss": [
+    "МЕН",
+    "ТАМАК",
+    "ЖЕ",
+    "КААЛОО"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мага жардам бериңизчи",
+   "gloss": [
+    "МАГА",
+    "ЖАРДАМ",
+    "БЕР",
+    "ӨТҮНӨМ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мага жардам керек",
+   "gloss": [
+    "МАГА",
+    "ЖАРДАМ",
+    "КЕРЕК"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Даараткана кайда?",
+   "gloss": [
+    "ДААРАТКАНА",
+    "КАЙДА"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Бул канча турат?",
+   "gloss": [
+    "БУЛ",
+    "КАНЧА"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Мага бул керек",
+   "gloss": [
+    "МАГА",
+    "БУЛ",
+    "КЕРЕК"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мага бул керек эмес",
+   "gloss": [
+    "МАГА",
+    "БУЛ",
+    "КЕРЕК",
+    "ЖОК"
+   ],
+   "question": false,
+   "negation": true
+  },
+  {
+   "text": "Мен чарчадым",
+   "gloss": [
+    "МЕН",
+    "ЧАРЧАГАН"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен эс алгым келет",
+   "gloss": [
+    "МЕН",
+    "ЭС АЛУУ",
+    "КААЛОО"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен үйгө баргым келет",
+   "gloss": [
+    "МЕН",
+    "ҮЙ",
+    "БАР",
+    "КААЛОО"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Жардам бериңиздер!",
+   "gloss": [
+    "ЖАРДАМ",
+    "БЕР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Тез жардам чакырыңыз",
+   "gloss": [
+    "ТЕЗ",
+    "ЖАРДАМ",
+    "ЧАКЫР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен ооруп жатам",
+   "gloss": [
+    "МЕН",
+    "ООРУ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Менин башым ооруйт",
+   "gloss": [
+    "МЕНИН",
+    "БАШ",
+    "ООРУ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Менин ичим ооруйт",
+   "gloss": [
+    "МЕНИН",
+    "АШКАЗАН",
+    "ООРУ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мага доктур керек",
+   "gloss": [
+    "МАГА",
+    "ДАРЫГЕР",
+    "КЕРЕК"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Ооруканага барышым керек",
+   "gloss": [
+    "МЕН",
+    "ООРУКАНА",
+    "БАР",
+    "КЕРЕК"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Дары керек",
+   "gloss": [
+    "ДАРЫ",
+    "КЕРЕК"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Милиция чакырыңыз",
+   "gloss": [
+    "ПОЛИЦИЯ",
+    "ЧАКЫР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Өрт чыкты",
+   "gloss": [
+    "ОТ",
+    "ЧЫК"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Коркунучтуу",
+   "gloss": [
+    "КОРК"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен адашып калдым",
+   "gloss": [
+    "МЕН",
+    "АДАШ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Бүгүн",
+   "gloss": [
+    "БҮГҮН"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Эртең",
+   "gloss": [
+    "ЭРТЕҢ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Кечээ",
+   "gloss": [
+    "КЕЧЭЭ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Азыр",
+   "gloss": [
+    "АЗЫР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Саат канча болду?",
+   "gloss": [
+    "СААТ",
+    "КАНЧА"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Бүгүн күн жакшы",
+   "gloss": [
+    "БҮГҮН",
+    "АБА",
+    "ЫРАЙЫ",
+    "ЖАКШЫ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Эртең мектепке барам",
+   "gloss": [
+    "ЭРТЕҢ",
+    "МЕН",
+    "МЕКТЕП",
+    "БАР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Эртең досум менен үйгө барабыз",
+   "gloss": [
+    "ЭРТЕҢ",
+    "МЕН",
+    "ДОС",
+    "ҮЙ",
+    "БАР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Кечээ мен үйдө болдум",
+   "gloss": [
+    "КЕЧЭЭ",
+    "МЕН",
+    "ҮЙ",
+    "БОЛГОН"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Бүгүн мен жумуш кылам",
+   "gloss": [
+    "БҮГҮН",
+    "МЕН",
+    "ЖУМУШ",
+    "КЫЛ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Качан келесиз?",
+   "gloss": [
+    "СИЗ",
+    "КЕЛ",
+    "КАЧАН"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Мен азыр келем",
+   "gloss": [
+    "АЗЫР",
+    "МЕН",
+    "КЕЛ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Бир аз күтө туруңуз",
+   "gloss": [
+    "БИР АЗ",
+    "КҮТ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен мектепке барам",
+   "gloss": [
+    "МЕН",
+    "МЕКТЕП",
+    "БАР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен окуйм",
+   "gloss": [
+    "МЕН",
+    "ОКУ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Сабак качан башталат?",
+   "gloss": [
+    "САБАК",
+    "БАШТАЛЫШ",
+    "КАЧАН"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Сабак бүттү",
+   "gloss": [
+    "САБАК",
+    "БҮТТҮ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мугалим кайда?",
+   "gloss": [
+    "МУГАЛИМ",
+    "КАЙДА"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Үй тапшырма бар",
+   "gloss": [
+    "ТАПШЫРМА",
+    "БАР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен китеп окуйм",
+   "gloss": [
+    "МЕН",
+    "КИТЕП",
+    "ОКУ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен кубанычтуумун",
+   "gloss": [
+    "МЕН",
+    "КУБАНЫЧ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен капамын",
+   "gloss": [
+    "МЕН",
+    "КАЙГЫЛУУ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен ачууландым",
+   "gloss": [
+    "МЕН",
+    "АЧУУЛУУ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен коркуп жатам",
+   "gloss": [
+    "МЕН",
+    "КОРК"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен сени сүйөм",
+   "gloss": [
+    "МЕН",
+    "СЕН",
+    "СҮЙҮҮ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Сиз мага жагасыз",
+   "gloss": [
+    "СИЗ",
+    "МАГА",
+    "ЖАГАТ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Абдан жакшы",
+   "gloss": [
+    "ЖАКШЫ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Жаман",
+   "gloss": [
+    "ЖАМАН"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен макулмун",
+   "gloss": [
+    "МЕН",
+    "ООБА"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мен макул эмесмин",
+   "gloss": [
+    "МЕН",
+    "ООБА",
+    "ЖОК"
+   ],
+   "question": false,
+   "negation": true
+  },
+  {
+   "text": "Ооба",
+   "gloss": [
+    "ООБА"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Жок",
+   "gloss": [
+    "ЖОК"
+   ],
+   "question": false,
+   "negation": true
+  },
+  {
+   "text": "Билбейм",
+   "gloss": [
+    "МЕН",
+    "БИЛ",
+    "ЖОК"
+   ],
+   "question": false,
+   "negation": true
+  },
+  {
+   "text": "Билем",
+   "gloss": [
+    "МЕН",
+    "БИЛ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Эмне?",
+   "gloss": [
+    "ЭМНЕ"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Ким?",
+   "gloss": [
+    "КИМ"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Кайда?",
+   "gloss": [
+    "КАЙДА"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Качан?",
+   "gloss": [
+    "КАЧАН"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Эмнеге?",
+   "gloss": [
+    "ЭМНЕГЕ"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Канча?",
+   "gloss": [
+    "КАНЧА"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Бул эмне?",
+   "gloss": [
+    "БУЛ",
+    "ЭМНЕ"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Сиз эмне кылып жатасыз?",
+   "gloss": [
+    "СИЗ",
+    "КЫЛ",
+    "ЭМНЕ"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Кайда барасыз?",
+   "gloss": [
+    "СИЗ",
+    "БАР",
+    "КАЙДА"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Сиз кайда жашайсыз?",
+   "gloss": [
+    "СИЗ",
+    "ЖАША",
+    "КАЙДА"
+   ],
+   "question": true,
+   "negation": false
+  },
+  {
+   "text": "Мен Бишкекте жашайм",
+   "gloss": [
+    "МЕН",
+    "#БИШКЕК",
+    "ЖАША"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мага телефон номериңизди бериңизчи",
+   "gloss": [
+    "МАГА",
+    "СИЗДИН",
+    "ТЕЛЕФОН",
+    "НОМЕР",
+    "БЕР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мага чалыңыз",
+   "gloss": [
+    "МАГА",
+    "ЧАЛ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Мага кат жазыңыз",
+   "gloss": [
+    "МАГА",
+    "КАТ",
+    "ЖАЗ"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Куттуктайм!",
+   "gloss": [
+    "МЕН",
+    "КУТТУКТА"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Туулган күнүң менен!",
+   "gloss": [
+    "СЕНИН",
+    "ТУУ",
+    "КҮН",
+    "КУТТУКТА"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Жаңы жылыңыз менен!",
+   "gloss": [
+    "СИЗДИН",
+    "ЖАҢЫ",
+    "ЖЫЛ",
+    "КУТТУКТА"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Ийгилик!",
+   "gloss": [
+    "ИЙГИЛИК"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Тамагыңыз таттуу болсун",
+   "gloss": [
+    "СИЗДИН",
+    "ТАМАК",
+    "ДААМДУУ",
+    "БОЛСО"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Келиңиз, отуруңуз",
+   "gloss": [
+    "КЕЛ",
+    "ОТУР"
+   ],
+   "question": false,
+   "negation": false
+  },
+  {
+   "text": "Чай ичесизби?",
+   "gloss": [
+    "СИЗ",
+    "ЧАЙ",
+    "ИЧ"
+   ],
+   "question": true,
+   "negation": false
+  }
+ ]
+}

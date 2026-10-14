@@ -1,0 +1,27 @@
+# Docker'ге жөнөтүлбөй турган нерселер (сүрөт кичине жана тез курулсун)
+.git
+node_modules
+dist
+*.log
+
+# Видео кэши (~1 ГБ), Python чөйрөлөрү, Blender түп нускасы — иштөө үчүн керек эмес
+tools
+tts
+assets
+
+# Сыноо скриншоттору, жергиликтүү маалымат
+.playwright-mcp
+shots
+server/data/rooms
+server/data/cert
+server/data/gloss-cache.json
+
+# Иштеп чыгуучу файлдары
+*.test.ts
+avatar-dev.html
+vision-dev.html
+Dockerfile
+docker-compose*.yml
+deploy
+.dockerignore
+.env

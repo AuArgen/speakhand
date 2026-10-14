@@ -1,0 +1,15 @@
+node_modules/
+dist/
+tts/.venv/
+tts/__pycache__/
+*.log
+tools/rsl_import/cache/
+tools/rsl_import/.venv/
+tools/rsl_import/__pycache__/
+# Сүйлөшүү бөлмөлөрү жана LAN сертификаты (жергиликтүү маалымат)
+server/data/rooms/
+server/data/cert/
+.playwright-mcp/
+shots/
+.env
+*.blend1
