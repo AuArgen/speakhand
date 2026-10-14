@@ -1,9 +1,10 @@
 # Сүйлө — Docker Compose.
 #
-#   docker compose up -d --build                         # тиркеме: http://<сервер>:8787
-#   docker compose --profile tts up -d --build           # + кыргызча үн (MMS-TTS, ~1.5 ГБ сүрөт)
-#   DOMAIN=suylo.example.kg docker compose --profile https up -d --build
-#                                                        # + Caddy: автоматтык HTTPS (Let's Encrypt), 80/443 порттору
+# Сыртка эч бир порт ачылбайт: тиркеме серверде 127.0.0.1:8787'де гана угат,
+# сырттан кирүү ушул сервердеги nginx аркылуу гана (deploy/nginx/speakhand.conf).
+#
+#   docker compose up -d --build                    # тиркеме
+#   docker compose --profile tts up -d --build      # + кыргызча үн (MMS-TTS, ички тармакта гана)
 #
 # Жөндөөлөр .env файлында (.env.example'ди көчүрүңүз).
 name: suylo
@@ -14,13 +15,13 @@ services:
     image: suylo-app:latest
     restart: unless-stopped
     ports:
-      - "${APP_PORT:-8787}:8787"
+      # 127.0.0.1 гана — сырттан түз кирүү жок (Docker'дин порттору ufw'ну айланып өтөт,
+      # ошондуктан 0.0.0.0'ге ЭЧ КАЧАН ачпаңыз). nginx ушул дарекке проксилейт.
+      - "127.0.0.1:${APP_PORT:-8787}:8787"
     environment:
       DATA_DIR: /data
-      # Caddy/nginx артында болсо 1 (чыныгы IP X-Forwarded-For'дон алынат)
-      TRUST_PROXY: "${TRUST_PROXY:-0}"
-      # 1 — өзү кол койгон сертификат менен HTTPS (домен жок болсо, телефондун камерасы үчүн)
-      HTTPS: "${HTTPS:-0}"
+      # Тиркемеге nginx гана кайрылат — чыныгы IP X-Forwarded-For'дон алынат.
+      TRUST_PROXY: "1"
       TTS_URL: http://tts:8790
     volumes:
       - suylo-data:/data
@@ -30,28 +31,9 @@ services:
     build: ./tts
     image: suylo-tts:latest
     restart: unless-stopped
+    # Порт серверге да ачылбайт — тиркеме гана Docker'дин ички тармагы аркылуу кайрылат.
     expose:
       - "8790"
 
-  caddy:
-    profiles: ["https"]
-    image: caddy:2-alpine
-    restart: unless-stopped
-    depends_on:
-      - app
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    environment:
-      # Домен (мис. suylo.example.kg же 203.0.113.5.sslip.io). Бош болсо — localhost (жергиликтүү сертификат).
-      DOMAIN: "${DOMAIN:-localhost}"
-    volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-
 volumes:
   suylo-data:
-  caddy-data:
-  caddy-config:

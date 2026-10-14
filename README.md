@@ -30,29 +30,34 @@ npm run start:lan    # курат жана HTTPS'те иштетет; телеф
 
 `npm run dev:lan` — ошол эле, бирок иштеп чыгуу режиминде (код өзгөргөндө өзү жаңырат).
 
-### Docker (VPS / сервер)
+### Docker (VPS / сервер) + nginx
 
-Серверде Docker жана Docker Compose болушу керек.
+Серверде Docker, Docker Compose жана nginx болушу керек. **Тиркеме сыртка эч бир порт ачпайт** — ал серверде `127.0.0.1:8787`'де гана угат, сырттан кирүү nginx аркылуу гана.
 
 ```bash
 git clone https://github.com/AuArgen/speakhand.git && cd speakhand
-cp .env.example .env                                   # керек болсо өзгөртүңүз
+cp .env.example .env
 
-docker compose up -d --build                           # тиркеме: http://<сервер>:8787
-docker compose --profile tts up -d --build             # + кыргызча үн (MMS-TTS, сүрөт ~2.3 ГБ)
+docker compose up -d --build                           # тиркеме → 127.0.0.1:8787 (сыртка жабык)
+docker compose --profile tts up -d --build             # + кыргызча үн (MMS-TTS, Docker ички тармагында гана)
 ```
 
-**HTTPS (телефондордун камерасы/микрофону үчүн зарыл):** `.env` ичинде `DOMAIN=` жана `TRUST_PROXY=1` коюп, Caddy менен:
+**nginx (HTTPS — телефондордун камерасы/микрофону үчүн зарыл):**
 
 ```bash
-docker compose --profile https --profile tts up -d --build    # 80/443 порттору ачык болушу керек
+sudo cp deploy/nginx/speakhand.conf /etc/nginx/sites-available/speakhand.conf
+sudo nano /etc/nginx/sites-available/speakhand.conf    # example.kg → өз домениңиз
+sudo ln -s /etc/nginx/sites-available/speakhand.conf /etc/nginx/sites-enabled/
+sudo certbot certonly --webroot -w /var/www/html -d <домен>   # Let's Encrypt
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Caddy Let's Encrypt сертификатын өзү алат. Домен жок болсо — `DOMAIN=<сервердин-IP>.sslip.io` (мис. `203.0.113.5.sslip.io`) да иштейт. Caddy колдонбосоңуз — `HTTPS=1` (өзү кол койгон сертификат, браузер эскертет).
+Конфигде: http → https, WebSocket (`/ws`, узак туташуулар), колдонуучунун чыныгы IP'си (`X-Forwarded-For` — алдоого болбойт). nginx 1.18 (Ubuntu 22.04) жана азыркы stable версияларында текшерилген.
 
 - Бөлмөлөр жана котормо кэши `suylo-data` томунда сакталат — контейнер жаңырса да жоголбойт.
 - Серверде Claude CLI жок — тиркеме AI'сыз режимде иштейт (даяр котормолор + сөздүк эрежелери); бул кадимки абал.
 - Абалы: `docker compose ps` (healthy болушу керек), логдор: `docker compose logs -f app`, жаңыртуу: `git pull && docker compose up -d --build`.
+- Портту текшерүү: `ss -ltnp | grep 8787` → `127.0.0.1:8787` гана болушу керек (`0.0.0.0` эмес).
 
 ### Кошумча
 
@@ -98,5 +103,5 @@ tts/                 кыргызча MMS-TTS кызматы (Python, кошум
 - Китепканадагы жесттер орус жест тилинен (РЖЯ); кыргыз жест тилинде айырмаланган сөздөрдү жест тилин билген адам **Студияда** жаздырышы керек — жаздырылган жест китепканадагыдан артыкчылыктуу.
 - Үзгүлтүксүз тез жест тилин толук таануу — дүйнөдө деле изилдөө маселеси; система ар бир жесттен кийин кыска тыныш күтөт. Таануунун босоголору синтетикалык сыноодо жөндөлгөн — чыныгы камера менен текшерип тууралоо керек.
 - Кыргызча үн таануу Chrome'дун кызматына көз каранды (интернет керек); иштебесе орусча режим же жазуу.
-- LAN сертификаты өзү кол коюлган — ар бир телефон бир жолу эскертүүнү өтүшү керек. Интернет аркылуу (ар кайсы жерден) колдонуу үчүн серверди хостингге жайгаштыруу керек.
+- LAN режиминин (`npm run start:lan`) сертификаты өзү кол коюлган — ар бир телефон бир жолу эскертүүнү өтүшү керек. Интернет аркылуу колдонуу үчүн — жогорудагы Docker + nginx.
 - MMS-TTS салмактары CC-BY-NC 4.0 — коммерциялык эмес колдонуу үчүн гана.
