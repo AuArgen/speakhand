@@ -32,7 +32,8 @@ export function useRoomSettings(): RoomSettingsHook {
   const [ai, setAi] = useStored("roomAi", false);
   const [sttLang, setSttLang] = useStored<SttLang>("sttLang", "ky-KG");
   const [vibrate, setVibrate] = useStored("roomVibrate", true);
-  const [threshold, setThreshold] = useStored("recThreshold", 0.55);
+  // (recThreshold2: четке кагуу калибровкасы өзгөрдү — эски сакталган маани колдонулбайт)
+  const [threshold, setThreshold] = useStored("recThreshold2", 0.45);
   const [autoSendMs, setAutoSendMs] = useStored("roomAutoSendMs", 2500);
   const s: RoomSettings = { tts, speed, ai, sttLang, vibrate, threshold, autoSendMs };
   const setters: { [K in keyof RoomSettings]: (v: RoomSettings[K]) => void } = {

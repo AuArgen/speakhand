@@ -10,7 +10,13 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
 import { decodeClip, type EncodedClip } from "../../src/data/clipCodec";
-import { FEATURE_DIM, FEATURE_WEIGHTS, RESAMPLE_N, clipFeatures } from "../../src/vision/features";
+import { FEATURE_CONFIG, FEATURE_DIM, FEATURE_VERSION, FEATURE_WEIGHTS, RESAMPLE_N, clipFeatures } from "../../src/vision/features";
+
+// experiments: FEAT=frame=yaw,posNorm=arm,sideOrigin=1 npx tsx tools/rsl_import/templates.ts
+for (const kv of (process.env.FEAT ?? "").split(",").filter(Boolean)) {
+  const [k, v] = kv.split("=");
+  (FEATURE_CONFIG as unknown as Record<string, unknown>)[k] = k === "sideOrigin" ? v === "1" : v;
+}
 import { SignClassifier, decodeTemplateBank, type TemplateIndex } from "../../src/vision/classifier";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
@@ -71,7 +77,7 @@ const bin = Buffer.from((useDelta ? delta : q).buffer);
 // are; real signers are farther from the templates than synthetic perturbations, so not stricter),
 // temperature = 0.25 × typical (same rule as SignClassifier.tempScale). Computed on the quantised bank.
 function calibrate(): { typical: number; temperature: number; nearestOtherMedian: number } {
-  const tmp = { version: 1, n, dims: D, count: R, encoding: "int8" as const, delta: useDelta, scale: Array.from(scale), glosses, rows };
+  const tmp = { version: 1, n, dims: D, count: R, encoding: "int8" as const, delta: useDelta, scale: Array.from(scale), glosses, rows, features: { n: RESAMPLE_N, dim: FEATURE_DIM, weights: FEATURE_WEIGHTS, version: FEATURE_VERSION, config: FEATURE_CONFIG } };
   const bank = decodeTemplateBank(tmp as TemplateIndex, bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.byteLength));
   const clf = new SignClassifier();
   const size = n * D;
@@ -103,7 +109,7 @@ const index = {
   rows,
   ids,
   // the client compares this with its own feature code and ignores a stale bank
-  features: { n: RESAMPLE_N, dim: FEATURE_DIM, weights: FEATURE_WEIGHTS },
+  features: { n: RESAMPLE_N, dim: FEATURE_DIM, weights: FEATURE_WEIGHTS, version: FEATURE_VERSION, config: FEATURE_CONFIG },
 };
 const json = JSON.stringify(index);
 writeFileSync(path.join(RSL, "templates.bin"), bin);

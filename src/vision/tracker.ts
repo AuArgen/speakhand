@@ -29,7 +29,15 @@ export interface TrackerOptions {
   delegate?: "GPU" | "CPU";
   /** Моделдер жана wasm жайгашкан базалык жол (демейки import.meta.env.BASE_URL) */
   baseUrl?: string;
+  /**
+   * Кирген сүрөт ушундан кең болсо, моделдерге берүүдөн мурун кичирейтилет (демейки 640).
+   * Моделдер ичинде 224–256 px менен иштейт — чоң кадр тактыкка эч нерсе кошпойт, GPU'га жүктөөнү гана узартат.
+   */
+  maxWidth?: number;
 }
+
+/** detect() кабыл алган булактар */
+export type DetectSource = HTMLVideoElement | HTMLCanvasElement | OffscreenCanvas | ImageBitmap | VideoFrame;
 
 export interface ImagePoint { x: number; y: number; v?: number }
 
@@ -45,6 +53,8 @@ export interface TrackResult {
   };
   /** Колдор кантип бөлүштүрүлдү (диагностика) */
   handMethod?: { left?: Assignment["method"][number]; right?: Assignment["method"][number] };
+  /** Моделдердин убактысы, мс (диагностика) */
+  timing?: { pose: number; hand: number; face: number; total: number };
 }
 
 /** Аватарга берилүүчү бет blendshape'тери */
@@ -105,6 +115,11 @@ export class Tracker {
   private frameNo = 0;
   private lastFace: { blend: Record<string, number> | null; pts: ImagePoint[] | null } = { blend: null, pts: null };
   private closed = false;
+  /** кичирейтүү үчүн буфер */
+  private scaled: OffscreenCanvas | HTMLCanvasElement | null = null;
+  private scaledCtx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null = null;
+  /** акыркы detect()тин убактысы (диагностика) */
+  lastTiming = { pose: 0, hand: 0, face: 0, total: 0 };
   /** Колдонулуп жаткан delegate'тер (диагностика) */
   readonly delegates: { hand: string; pose: string; face?: string };
 
@@ -129,6 +144,7 @@ export class Tracker {
       faceEvery: Math.max(1, opts.faceEvery ?? 2),
       delegate: opts.delegate ?? "GPU",
       baseUrl: base,
+      maxWidth: opts.maxWidth ?? 640,
     };
     const fileset = await FilesetResolver.forVisionTasks(`${base}mediapipe-wasm`);
     const [hand, pose] = await Promise.all([
@@ -185,28 +201,45 @@ export class Tracker {
   }
 
   /**
-   * Видеонун учурдагы кадрын иштетет. Видео даяр эмес болсо же жаңы кадр жок болсо — null
-   * (мурунку натыйжаны кайра колдонуңуз).
+   * Видеонун (же канвастын / ImageBitmap'тин) учурдагы кадрын иштетет. Видео даяр эмес болсо же
+   * жаңы кадр жок болсо — null (мурунку натыйжаны кайра колдонуңуз).
    */
-  detect(video: HTMLVideoElement, timestampMs: number): TrackResult | null {
-    if (this.closed || video.readyState < 2 || !video.videoWidth) return null;
-    if (video.currentTime === this.lastVideoTime) return null;
-    this.lastVideoTime = video.currentTime;
+  detect(source: DetectSource, timestampMs: number): TrackResult | null {
+    if (this.closed) return null;
+    let w: number, h: number;
+    if (source instanceof HTMLVideoElement) {
+      if (source.readyState < 2 || !source.videoWidth) return null;
+      if (source.currentTime === this.lastVideoTime) return null;
+      this.lastVideoTime = source.currentTime;
+      w = source.videoWidth; h = source.videoHeight;
+    } else if ("displayWidth" in source) {
+      w = source.displayWidth; h = source.displayHeight;
+    } else {
+      w = source.width; h = source.height;
+    }
+    if (!w || !h) return null;
     // MediaPipe монотондуу өсүүчү убакытты талап кылат
     const ts = timestampMs > this.lastTs ? timestampMs : this.lastTs + 1;
     this.lastTs = ts;
     this.frameNo++;
+    const t0 = performance.now();
+    const input = this.downscale(source, w, h);
 
-    const pr = this.pose.detectForVideo(video, ts);
-    const hr = this.hand.detectForVideo(video, ts);
+    const pr = this.pose.detectForVideo(input, ts);
+    const t1 = performance.now();
+    const hr = this.hand.detectForVideo(input, ts);
+    const t2 = performance.now();
     if (this.face && this.frameNo % this.opts.faceEvery === 0) {
-      const fr = this.face.detectForVideo(video, ts);
+      const fr = this.face.detectForVideo(input, ts);
       const blend = fr.faceBlendshapes?.[0]?.categories;
       this.lastFace = {
         blend: blend ? pickBlend(blend) : null,
         pts: fr.faceLandmarks?.[0] ? faceIndices().map((i) => toImage(fr.faceLandmarks[0][i])) : null,
       };
     }
+    const t3 = performance.now();
+    this.lastTiming = { pose: t1 - t0, hand: t2 - t1, face: t3 - t2, total: t3 - t0 };
+    const aspect = w / h;
 
     const poseImg = pr.landmarks?.[0] ?? null;
     const poseWorld = pr.worldLandmarks?.[0] ?? null;
@@ -220,7 +253,7 @@ export class Tracker {
         wrists: hr.landmarks.slice(0, n).map((l) => l[0]),
         labels: hr.landmarks.slice(0, n).map((_, i) => (hr.handedness ?? hr.handednesses)?.[i]?.[0]?.categoryName),
         pose: poseImg,
-        aspect: video.videoWidth / video.videoHeight,
+        aspect,
         mirroredInput: false,
       });
       for (let i = 0; i < n; i++) {
@@ -247,7 +280,24 @@ export class Tracker {
         face: this.face ? this.lastFace.pts : null,
       },
       handMethod,
+      timing: this.lastTiming,
     };
+  }
+
+  /** Кадр maxWidth'тен кең болсо — кичирейтилген көчүрмөсү (буферде), болбосо өзү. */
+  private downscale(source: DetectSource, w: number, h: number): DetectSource {
+    const max = this.opts.maxWidth;
+    if (!(max > 0) || w <= max) return source;
+    const sw = max, sh = Math.round((h * max) / w);
+    if (!this.scaled) {
+      this.scaled = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(sw, sh) : document.createElement("canvas");
+      this.scaledCtx = (this.scaled as OffscreenCanvas).getContext("2d", { alpha: false, willReadFrequently: false }) as OffscreenCanvasRenderingContext2D | null;
+    }
+    const c = this.scaled, ctx = this.scaledCtx;
+    if (!ctx) return source;
+    if (c.width !== sw || c.height !== sh) { c.width = sw; c.height = sh; }
+    (ctx as CanvasRenderingContext2D).drawImage(source as CanvasImageSource, 0, 0, sw, sh);
+    return c;
   }
 
   close(): void {

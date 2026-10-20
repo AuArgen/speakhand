@@ -59,3 +59,19 @@ uv run python validate.py cmp cache/val/*.png   # Python-порт трекера
 | `build.py` | границы жеста по субтитру и подъёму/опусканию рук, заполнение пропусков ≤ 4 кадров, сглаживание, 20 fps, `quality`, кодер формата 2 |
 | `templates.ts` | признаки `clipFeatures` для каждого клипа → int8 (дельта по времени) + калибровка порога/температуры |
 | `roundtrip.ts`, `evalrecog.ts`, `validate.py` | проверки (см. выше) |
+
+## Проверка «живого» конвейера (replay)
+
+Видео и кэш трекинга служат тестовым материалом для распознавания в реальном времени
+(та же подпись = тот же человек, что и в шаблонах — числа оптимистичны для нового пользователя):
+
+```sh
+uv run python dumpstream.py                   # cache/track/*.npz → cache/stream/lNN.json (кадры как из Tracker.detect)
+npx tsx tools/rsl_import/livereplay.ts        # одиночные жесты: top-1/top-5, принятые, задержка; --perturb=mirror,fps15,arm0.85,tilt10,…
+npx tsx tools/rsl_import/utterreplay.ts       # предложения из 2–5 жестов (руки опускаются в конце): exact, WER, задержка декодера
+npx tsx tools/rsl_import/profdecode.ts        # стоимость одного сравнения сегмента с банком
+node tools/browsercheck.mjs http://localhost:8796 all   # headless Chrome: страницы + vision-replay.html (реальный MediaPipe на видео; GPU=1 — ускорение)
+```
+
+`vision-replay.html?lesson=3&from=0&to=60&mode=sign|utterance&vocab=conv|all&perturb=flip,zoom1.3,shift0.1,res360,fps15,bright1.3&step=1`
+прогоняет фрагмент урока через настоящий Tracker → сегментатор → классификатор/декодер (`step=1` — покадрово, детерминированно).

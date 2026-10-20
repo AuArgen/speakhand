@@ -1,13 +1,18 @@
 // Жаңсоочунун куралдары: камера менен жест таануу → сөздөр долбоору → сүйлөм → автоматтык жөнөтүү;
 // даяр сүйлөмдөр жана сөз тандагыч (камерасыз эң тез жол); текст жазуу.
+//
+// Камера "сүйлөм" режиминде иштейт (useSignCapture, utterance): колдонуучу бир нече жестти катары
+// менен көрсөтөт, жүрүп жатканда болжолдуу сөздөр көрүнөт; ЭКИ колун түшүргөндө сүйлөм декоддолот
+// (даяр сүйлөм дал келсе — анын тексти, болбосо глосстордон түзүлгөн сүйлөм) жана кыска убакыттан
+// кийин (токтотууга мүмкүнчүлүк менен) жөнөтүлөт.
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { composeSentence } from "../../lib/compose";
 import type { PhraseItem } from "../../lib/room";
-import type { RecognizerState } from "../../lib/recognizer";
-import type { Recognition, SignEntry } from "../../lib/types";
+import { useSignCapture, type RecognizerState, type UtteranceResult } from "../../lib/recognizer";
+import type { MocapClip, Recognition, SignEntry } from "../../lib/types";
 import type { RoomHook } from "../../hooks/useRoom";
 import { vibrate } from "../../hooks/useHaptics";
-import { SignSegmenter, type TrackResult } from "../../vision";
+import type { TrackResult } from "../../vision";
 import { CameraView } from "../CameraView";
 import { IconCamera, IconHand, IconInfo, IconStop, IconX } from "../icons";
 import { QuickPhrases } from "./QuickPhrases";
@@ -23,6 +28,9 @@ const MODES: { id: ToolMode; label: string; icon: typeof IconHand }[] = [
   { id: "words", label: "Сөздөр", icon: IconGrid },
   { id: "text", label: "Жазуу", icon: IconKeyboard },
 ];
+
+/** Колдор түшкөндөн кийин жөнөтүүгө чейинки терезе (токтотуу үчүн), мс — ылдамдык маанилүү */
+const SEND_WINDOW_MS = 1500;
 
 export function SignerTools(props: {
   send: RoomHook["send"];
@@ -45,15 +53,15 @@ export function SignerTools(props: {
   const [draft, setDraft] = useState<string[]>([]);
   const [fromCamera, setFromCamera] = useState(false);
   const [countdown, setCountdown] = useState<{ key: number; ms: number } | null>(null);
-  const [signing, setSigning] = useState(false);
-  const [last, setLast] = useState<{ r: Recognition; ok: boolean } | null>(null);
+  const [last, setLast] = useState<{ r: Recognition; ok: boolean; phrase: string | null } | null>(null);
   const [text, setText] = useState("");
   /** Камера күйгүзүлгөндөн кийин узак убакыт кадр келбесе — кеңеш көрсөтөбүз */
   const [cameraStuck, setCameraStuck] = useState(false);
   const gotFrame = useRef(false);
 
-  const segmenter = useRef(new SignSegmenter());
   const timer = useRef(0);
+  /** Долбоор так ушул даяр сүйлөмдүн глосстору болсо — анын тексти жөнөтүлөт */
+  const phraseFor = useRef<{ key: string; text: string } | null>(null);
   const typingTimer = useRef(0);
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -61,8 +69,6 @@ export function SignerTools(props: {
   fromCameraRef.current = fromCamera;
   const settings = useRef(props.settings);
   settings.current = props.settings;
-  const classifier = useRef(props.recognizer.classifier);
-  classifier.current = props.recognizer.classifier;
   const { send, setStatus } = props;
 
   const composed = useMemo(
@@ -80,26 +86,38 @@ export function SignerTools(props: {
     const d = draftRef.current;
     cancelTimer();
     if (!d.length) return;
+    const pf = phraseFor.current;
     const c = composeSentence(d, { phrases: props.phraseIndex, signs: props.signs });
-    send(c.text || d.join(" "), { via: fromCameraRef.current ? "sign" : "quick", gloss: d });
+    const text = pf && pf.key === d.join(" ") ? pf.text : c.text || d.join(" ");
+    send(text, { via: fromCameraRef.current ? "sign" : "quick", gloss: d });
     setDraft([]);
     setFromCamera(false);
     setLast(null);
-    segmenter.current.reset();
+    phraseFor.current = null;
     vibrate(25);
   }, [cancelTimer, props.phraseIndex, props.signs, send]);
 
-  const armTimer = useCallback(() => {
+  const armTimer = useCallback((ms = settings.current.autoSendMs) => {
     window.clearTimeout(timer.current);
-    const ms = settings.current.autoSendMs;
     timer.current = window.setTimeout(sendDraft, ms);
     setCountdown((c) => ({ key: (c?.key ?? 0) + 1, ms }));
   }, [sendDraft]);
 
   function addWord(gloss: string, camera: boolean) {
     setDraft((d) => [...d, gloss]);
+    phraseFor.current = null;
     if (camera) setFromCamera(true);
     armTimer();
+  }
+
+  /** Камерадан келген сүйлөм: сөздөр долбоорго кошулат, кыска терезеден кийин жөнөтүлөт */
+  function addUtterance(gloss: string[], phraseText: string | null) {
+    const d = draftRef.current;
+    const next = [...d, ...gloss];
+    phraseFor.current = phraseText && !d.length ? { key: next.join(" "), text: phraseText } : null;
+    setDraft(next);
+    setFromCamera(true);
+    armTimer(Math.min(settings.current.autoSendMs, SEND_WINDOW_MS));
   }
 
   function removeWord(i: number) {
@@ -113,7 +131,8 @@ export function SignerTools(props: {
     setDraft([]);
     setFromCamera(false);
     setLast(null);
-    segmenter.current.reset();
+    phraseFor.current = null;
+    cap.reset();
   }
 
   useEffect(() => {
@@ -124,44 +143,38 @@ export function SignerTools(props: {
     return () => window.clearTimeout(t);
   }, [cameraOn]);
 
-  // ----- Камера → сегмент → классификатор -----
-  function onFrame(res: TrackResult) {
-    if (!gotFrame.current) { gotFrame.current = true; setCameraStuck(false); }
-    const seg = segmenter.current.push(res.frame);
-    const active = segmenter.current.active;
-    setSigning((prev) => (prev === active ? prev : active));
-    if (active) {
-      // Жест жүрүп жатат — таймерди токтотобуз (долбоор сакталат)
-      if (timer.current) {
-        window.clearTimeout(timer.current);
-        timer.current = 0;
-        setCountdown(null);
+  // ----- Камера → сүйлөм (utterance) → декодер -----
+  const cap = useSignCapture({
+    active: cameraOn && mode === "camera",
+    mode: "utterance",
+    onUtterance: (_clip: MocapClip, result: UtteranceResult | null) => {
+      if (!result || !result.gloss.length) {
+        if (draftRef.current.length) armTimer(SEND_WINDOW_MS);
+        return;
       }
-    }
-    if (!seg) return;
-    const c = classifier.current;
-    if (!c) return;
-    const r = c.classify(seg);
-    if (!r) {
-      if (draftRef.current.length) armTimer();
-      return;
-    }
-    const ok = r.confidence >= settings.current.threshold;
-    setLast({ r, ok });
-    if (ok) addWord(r.gloss, true);
-    else if (draftRef.current.length) armTimer();
-  }
+      // Сүйлөмдүн ишеними — эң начар жесттики; даяр сүйлөм дал келсе — кабыл алабыз
+      const ok = !!result.phrase || result.confidence >= settings.current.threshold * 0.8;
+      setLast({ r: { gloss: result.gloss.join(" "), confidence: result.confidence, alternatives: [] }, ok, phrase: result.phrase?.text ?? null });
+      if (ok) addUtterance(result.gloss, result.phrase?.text ?? null);
+      else if (draftRef.current.length) armTimer(SEND_WINDOW_MS);
+    },
+  });
+  const signing = cap.signing;
+  const capFrame = cap.cameraProps.onFrame;
+  const onFrame = useCallback((res: TrackResult) => {
+    if (!gotFrame.current) { gotFrame.current = true; setCameraStuck(false); }
+    capFrame(res);
+  }, [capFrame]);
 
   useEffect(() => {
     setStatus(signing ? "signing" : "idle");
-  }, [signing, setStatus]);
-
-  useEffect(() => {
-    if (!cameraOn) {
-      segmenter.current.reset();
-      setSigning(false);
+    // Сүйлөм жүрүп жатат — таймерди токтотобуз (долбоор сакталат, сөздөр кошулат)
+    if (signing && timer.current) {
+      window.clearTimeout(timer.current);
+      timer.current = 0;
+      setCountdown(null);
     }
-  }, [cameraOn]);
+  }, [signing, setStatus]);
 
   useEffect(() => () => { window.clearTimeout(timer.current); window.clearTimeout(typingTimer.current); }, []);
 
@@ -245,9 +258,9 @@ export function SignerTools(props: {
                     {!props.recognizer.classifier ? (
                       <><span className="spinner" /> Жесттер жүктөлүүдө…</>
                     ) : signing ? (
-                      <><span className="chip live" style={{ padding: 0, border: 0, background: "none" }}><span className="dot" /></span> Жест аныкталууда…</>
+                      <><span className="chip live" style={{ padding: 0, border: 0, background: "none" }}><span className="dot" /></span> {cap.hypothesis.length ? cap.hypothesis.map((g) => g.replace(/^#/, "")).join(" ") + "…" : "Жест аныкталууда…"}</>
                     ) : (
-                      <>✋ Жест көрсөтүңүз</>
+                      <>✋ Жесттерди көрсөтүп, бүткөндө эки колуңузду түшүрүңүз</>
                     )}
                   </div>
                 )}
@@ -255,7 +268,7 @@ export function SignerTools(props: {
                   <div className="stage-center">
                     <div className="rm-camera-off">
                       <button className="btn btn-primary btn-lg" onClick={() => setCameraOn(true)}><IconCamera /> Камераны күйгүзүү</button>
-                      <p className="muted">Видео эч жакка жөнөтүлбөйт — таануу браузерде иштейт. Ар бир жесттен кийин колуңузду бир аз түшүрүңүз.</p>
+                      <p className="muted">Видео эч жакка жөнөтүлбөйт — таануу браузерде иштейт. Сүйлөмдү жесттер менен көрсөтүп, бүткөндө эки колуңузду түшүрүңүз — ошондо жөнөтүлөт.</p>
                     </div>
                   </div>
                 )}
@@ -269,8 +282,8 @@ export function SignerTools(props: {
               )}
               <span className="chip" title="Тааный турган жесттер">{props.recognizer.loading ? <span className="spinner" /> : <IconHand style={{ width: 14 }} />} {vocab} жест</span>
               {last && (
-                <span className={`chip ${last.ok ? "ok" : "bad"}`} title={last.r.alternatives.slice(0, 2).map((a) => `${a.gloss} ${Math.round(a.confidence * 100)}%`).join(", ")}>
-                  <span className="dot" /> {last.r.gloss} · {Math.round(last.r.confidence * 100)}%
+                <span className={`chip ${last.ok ? "ok" : "bad"}`} title={last.phrase ? `Даяр сүйлөм: ${last.phrase}` : last.ok ? "Кабыл алынды" : "Ишеним төмөн — кайра көрсөтүңүз"}>
+                  <span className="dot" /> {last.r.gloss.replace(/#/g, "")} · {Math.round(last.r.confidence * 100)}%{last.phrase ? " · даяр сүйлөм" : ""}
                 </span>
               )}
             </div>

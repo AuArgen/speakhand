@@ -11,8 +11,36 @@
 //   китепкананын алдын ала эсептелген банкы (addTemplates(bank) — public/signs/rsl/templates.bin,
 //   ушул эле features.ts менен офлайн эсептелген). Экөө бир класс мейкиндигинде бириктирилет.
 
-import type { MocapClip, Recognition, SignEntry } from "../lib/types";
-import { FEATURE_DIM, FEATURE_WEIGHTS, HAND_DIM, RESAMPLE_N, clipFeatures } from "./features";
+import type { MocapClip, MocapFrame, Recognition, SignEntry, Vec3 } from "../lib/types";
+import { FEATURE_CONFIG, FEATURE_DIM, FEATURE_VERSION, FEATURE_WEIGHTS, HAND_DIM, RESAMPLE_N, clipFeatures } from "./features";
+
+/** Таануунун толук натыйжасы: бардык активдүү класстар аралыгы боюнча иреттелген */
+export interface DetailedRecognition {
+  ranked: { gloss: string; dist: number; confidence: number; exact: boolean }[];
+  /** Эң жакын класстын адаттагы ички аралыгына карата катышы (четке кагуу үчүн) */
+  ratio: number;
+  mirrored: boolean;
+}
+
+export interface ClassifyOptions {
+  /** Активдүү сөздүктөн тышкары да эсептелүүчү глосстор (мис. үйрөнүлүп жаткан жест) */
+  include?: Iterable<string>;
+  /** Күзгүлөөнү мажбурлоо (handedness опциясын четке кагат) */
+  mirror?: boolean;
+  /**
+   * Аралыктын чеги: ушундан алыс үлгүлөр так эсептелбейт (DTW эрте токтойт) — начар дал келген
+   * сегменттерде (сүйлөм декодери) эсептөө бир нече эсе тездейт. Демейки чексиз.
+   */
+  maxDist?: number;
+  /** Эң жакшы K класс гана так керек болсо (сүйлөм декодери): K-чы аралык да кесүү чеги болот */
+  topK?: number;
+  /**
+   * Эки баскычтуу издөө: адегенде орун белгилери (билек/чыканак/бар-жок, 14 өлчөм) боюнча арзан DTW
+   * бардык үлгүлөргө, анан эң жакын `coarse` үлгүгө гана толук DTW. Чоң сөздүктө (1280 глосс) ~5 эсе
+   * тез; жакындашуу (кол формасы биринчи баскычта эске алынбайт). 0 — өчүк (демейки).
+   */
+  coarse?: number;
+}
 
 // Колдун формасы (60 өлчөм) кол көрүнбөсө нөл. Эки ырааттуулукта тең нөл болгон блоктор
 // аралыкка эч нерсе кошпойт — DTW/LB аларды өткөрүп жиберет (жыйынтык так ошол эле).
@@ -51,12 +79,25 @@ export interface ClassifierOptions {
   k?: number;
   /** softmax температурасы = tempScale × адаттагы ички аралык (демейки 0.25) */
   tempScale?: number;
-  /** Четке кагуу: аралык / адаттагы ички аралык ушул чектен ашса, ишеним < 0.5 (демейки 2.0) */
+  /**
+   * Четке кагуу: аралык / адаттагы ички аралык ушул чектен ашса, ишеним < 0.5 (демейки 3.0).
+   * Түз эфирдеги трекер (pose lite, жылмаланбаган) китепкананын үлгүлөрүнөн ~2.2–2.9 эсе алыс
+   * (ошол эле адам, ошол эле видео — vision-replay.html менен өлчөнгөн); 2.0 баарын четке кагат.
+   */
   rejectRatio?: number;
   /** Четке кагуунун "катуулугу" (демейки 4) */
   rejectSharpness?: number;
-  /** Сол колдуу колдонуучу: таанууда кадрлар күзгүдөй чагылдырылат */
+  /** Сол колдуу колдонуучу: таанууда кадрлар күзгүдөй чагылдырылат (handedness: "left" менен бирдей) */
   leftHanded?: boolean;
+  /**
+   * Колдун багыты: "right" — үлгүлөрдөй (оң кол негизги); "left" — кадрлар күзгүлөнөт;
+   * "auto" (демейки) — сегментте сол кол негизги болсо, күзгүлөнөт.
+   */
+  handedness?: "auto" | "right" | "left";
+  /** Колдонуучунун өз үлгүлөрүнүн аралыгына көбөйтүүчү (< 1 — жеке үлгүлөр артыкчылыктуу, демейки 1) */
+  userBias?: number;
+  /** Таанууда кадрларды себептүү (causal) EMA менен жылмалоо, 0 — өчүк (демейки 0) */
+  smooth?: number;
   /** Окутууда ар бир үлгүнүн күзгү көчүрмөсүн да кошуу (сол/оң колдуу аралаш колдонуучулар үчүн) */
   mirrorAugment?: boolean;
   /** Эң кыска сегмент, мс (демейки 150) */
@@ -94,7 +135,7 @@ export interface TemplateIndex {
   glosses: string[];
   rows: number[];
   ids?: string[];
-  features?: { n: number; dim: number; weights: Record<string, number> };
+  features?: { n: number; dim: number; weights: Record<string, number>; version?: number; config?: Record<string, unknown> };
   calib?: { typical: number; temperature: number };
 }
 
@@ -105,6 +146,12 @@ export function decodeTemplateBank(index: TemplateIndex, buf: ArrayBuffer): Temp
   if (index.features?.weights) {
     for (const [k, v] of Object.entries(FEATURE_WEIGHTS)) {
       if (Math.abs((index.features.weights[k] ?? NaN) - v) > 1e-9) throw new Error(`templates: feature weight "${k}" differs — rebuild templates`);
+    }
+  }
+  if ((index.features?.version ?? 1) !== FEATURE_VERSION) throw new Error(`templates: feature version ${index.features?.version ?? 1}, code ${FEATURE_VERSION} — rebuild templates`);
+  if (index.features?.config) {
+    for (const [k, v] of Object.entries(FEATURE_CONFIG)) {
+      if (index.features.config[k] !== v) throw new Error(`templates: feature config "${k}" differs — rebuild templates`);
     }
   }
   const q = new Int8Array(buf);
@@ -145,9 +192,12 @@ const DEFAULTS: Required<ClassifierOptions> = {
   band: 0.2,
   k: 2,
   tempScale: 0.25,
-  rejectRatio: 2.0,
+  rejectRatio: 3.0,
   rejectSharpness: 4,
   leftHanded: false,
+  handedness: "auto",
+  userBias: 1,
+  smooth: 0,
   mirrorAugment: false,
   minDurationMs: 150,
   minFrames: 4,
@@ -158,6 +208,10 @@ export class SignClassifier {
   private opts: Required<ClassifierOptions>;
   private glosses: string[] = [];
   private templates: Template[] = [];
+  /** Активдүү сөздүк (null — баары); колдонуучунун үлгүлөрү ар дайым активдүү */
+  private vocab: Set<string> | null = null;
+  private active = new Uint8Array(0);
+  private hasUser = new Uint8Array(0);
   private userTemplates: Template[] = [];
   private bankTemplates: Template[] = [];
   private bankCalib: TemplateBank["calib"] | null = null;
@@ -178,8 +232,39 @@ export class SignClassifier {
     this.cur = new Float64Array(this.n);
   }
 
+  /** Активдүү (таанылуучу) глосстор */
   get vocabulary(): string[] {
+    const v = this.vocab;
+    return v ? this.glosses.filter((g, c) => v.has(g) || this.hasUser[c]) : this.glosses.slice();
+  }
+
+  /** Бардык белгилүү глосстор (активдүү эмес да) */
+  get allGlosses(): string[] {
     return this.glosses.slice();
+  }
+
+  /**
+   * Активдүү сөздүктү чектейт: ушул глосстор гана таанылат (null — баары). Колдонуучунун өз
+   * үлгүлөрү бар глосстор ар дайым активдүү. Үлгүлөр өчүрүлбөйт — маска гана.
+   */
+  setVocabulary(glosses: Iterable<string> | null): void {
+    this.vocab = glosses ? new Set(glosses) : null;
+    this.remask();
+  }
+
+  /** Опцияларды өзгөртүү (мис. handedness) — үлгүлөр сакталат */
+  configure(opts: ClassifierOptions): void {
+    Object.assign(this.opts, opts);
+  }
+
+  private remask(): void {
+    const T = this.templates.length;
+    this.active = new Uint8Array(T);
+    const v = this.vocab;
+    for (let i = 0; i < T; i++) {
+      const t = this.templates[i];
+      this.active[i] = !v || t.origin === "user" || v.has(t.gloss) ? 1 : 0;
+    }
   }
 
   get size(): number {
@@ -271,21 +356,145 @@ export class SignClassifier {
       }
       t.cls = c;
     }
+    this.hasUser = new Uint8Array(this.glosses.length);
+    for (const t of this.userTemplates) this.hasUser[t.cls] = 1;
+    this.remask();
     this.calibrate();
   }
 
   /** Сегментти таанийт. Эч нерсе окутулбаса же сегмент өтө кыска болсо — null. */
-  classify(clip: MocapClip): Recognition | null {
+  classify(clip: MocapClip, opts: ClassifyOptions = {}): Recognition | null {
+    const d = this.classifyDetailed(clip, opts);
+    return d ? toRecognition(d) : null;
+  }
+
+  /** Сегментти таанып, бардык активдүү класстардын аралыгын кайтарат (үйрөнүү/текшерүү үчүн). */
+  classifyDetailed(clip: MocapClip, opts: ClassifyOptions = {}): DetailedRecognition | null {
     if (!this.templates.length || !this.validClip(clip)) return null;
-    const q = clipFeatures(clip, { mirror: this.opts.leftHanded });
-    if (!q) return null;
-    return this.classifySequence(q);
+    const auto = opts.mirror ?? this.dominantSide(clip);
+    if (auto !== null) {
+      const q = clipFeatures(clip, { mirror: auto, smooth: this.opts.smooth });
+      return q ? this.rank(q, opts.include, auto, opts.maxDist, opts.topK, opts.coarse) : null;
+    }
+    // Негизги кол белгисиз (эки кол тең кыймылдайт): эки багытта тең салыштырып, жакыныраагын алабыз
+    const q0 = clipFeatures(clip, { mirror: false, smooth: this.opts.smooth });
+    const q1 = clipFeatures(clip, { mirror: true, smooth: this.opts.smooth });
+    const r0 = q0 ? this.rank(q0, opts.include, false, opts.maxDist, opts.topK, opts.coarse) : null;
+    const r1 = q1 ? this.rank(q1, opts.include, true, opts.maxDist, opts.topK, opts.coarse) : null;
+    if (!r0) return r1;
+    if (!r1) return r0;
+    return r1.ranked[0].dist < r0.ranked[0].dist * 0.97 ? r1 : r0;
+  }
+
+  /** Даяр белги ырааттуулугун (N×D) иреттейт; include — активдүү сөздүктөн тышкары да каралуучу глосстор. */
+  rankSequence(q: Float32Array, opts: { include?: Iterable<string>; mirrored?: boolean; maxDist?: number; topK?: number; coarse?: number } = {}): DetailedRecognition | null {
+    return this.rank(q, opts.include, opts.mirrored ?? false, opts.maxDist, opts.topK, opts.coarse);
+  }
+
+  /** Банктын/колдонуучунун адаттагы ички аралыгы (четке кагуу чеги = rejectRatio × ушул) */
+  get typicalDistance(): number {
+    const prior = this.bankCalib?.typical;
+    if (!this.glosses.length) return prior ?? 0.35;
+    const xs = Array.from(this.typical).filter((v) => Number.isFinite(v) && v > 0);
+    return xs.length ? median(xs) : prior ?? 0.35;
+  }
+
+  /**
+   * Берилген глосстор үчүн так аралыктар (кесүүсүз): банк — эң жакын үлгү, колдонуучу — k-NN орточосу.
+   * Белгисиз глосс — Infinity.
+   */
+  distancesFor(q: Float32Array, glosses: Iterable<string>, cutoff = Infinity): Map<string, number> {
+    const out = new Map<string, number>();
+    const want = new Set(glosses);
+    const qz = zeroMask(q, this.n, this.D);
+    const user = new Map<string, number[]>();
+    const k = this.opts.k, bias = this.opts.userBias;
+    for (const t of this.templates) {
+      if (!want.has(t.gloss)) continue;
+      // cutoff'тон алыс болсо — cutoff (так эмес, бирок DP үчүн жетиштүү)
+      if (Number.isFinite(cutoff) && this.lbKeogh(q, t, qz, 4, cutoff) >= cutoff) { out.set(t.gloss, Math.min(out.get(t.gloss) ?? Infinity, cutoff)); continue; }
+      let d = this.dtw(q, t.seq, cutoff, qz, t.zero);
+      if (!Number.isFinite(d)) d = cutoff;
+      if (t.origin === "bank") out.set(t.gloss, Math.min(out.get(t.gloss) ?? Infinity, d));
+      else {
+        const u = user.get(t.gloss) ?? [];
+        insertSorted(u, d * bias, k);
+        user.set(t.gloss, u);
+      }
+    }
+    for (const [g, u] of user) {
+      const m = u.reduce((a, b) => a + b, 0) / u.length;
+      out.set(g, Math.min(out.get(g) ?? Infinity, m));
+    }
+    for (const g of want) if (!out.has(g)) out.set(g, Infinity);
+    return out;
+  }
+
+  /** Сегментте кайсы кол негизги экенин аныктайт: "auto" режиминде сол кол болсо — күзгү (белгисиз → жок). */
+  detectMirror(clip: MocapClip): boolean {
+    return this.dominantSide(clip) ?? false;
+  }
+
+  /** true — сол кол негизги (күзгү), false — оң, null — белгисиз (эки кол тең кыймылдайт) */
+  detectSide(clip: MocapClip): boolean | null {
+    return this.dominantSide(clip);
+  }
+
+  /** Четке кагуу параметрлери (декодер ушуну колдонот) */
+  get rejection(): { ratio: number; sharpness: number; temperature: number } {
+    return { ratio: this.opts.rejectRatio, sharpness: this.opts.rejectSharpness, temperature: this.temperature };
+  }
+
+  /** true — күзгүлөө керек (сол кол негизги), false — жок, null — белгисиз (эки кол тең) */
+  private dominantSide(clip: MocapClip): boolean | null {
+    const h = this.opts.handedness;
+    if (h === "left") return true;
+    if (h === "right") return false;
+    if (this.opts.leftHanded) return true;
+    // Негизги кол — көбүрөөк кыймылдаган кол (pose билегинин жолунун узундугу + кол формасынын
+    // өзгөрүшү); бир колдуу жестте — көрүнгөн кол. Сол кол ачык эле негизги болсо — күзгү.
+    let lPath = 0, rPath = 0, lSeen = 0, rSeen = 0;
+    let prev: MocapFrame | null = null;
+    for (const f of clip.frames) {
+      if (f.leftHand) lSeen++;
+      if (f.rightHand) rSeen++;
+      if (prev && f.pose && prev.pose && f.pose.length > 16 && prev.pose.length > 16) {
+        const d = (i: number) => Math.hypot(f.pose![i][0] - prev!.pose![i][0], f.pose![i][1] - prev!.pose![i][1], f.pose![i][2] - prev!.pose![i][2]);
+        if (f.leftHand && prev.leftHand) lPath += d(15) + 0.3 * handDelta(f.leftHand, prev.leftHand);
+        if (f.rightHand && prev.rightHand) rPath += d(16) + 0.3 * handDelta(f.rightHand, prev.rightHand);
+      }
+      prev = f;
+    }
+    if (!lSeen) return false;
+    if (!rSeen) return true;
+    if (rSeen < 0.35 * lSeen) return true;
+    if (lSeen < 0.35 * rSeen) return false;
+    if (lPath > 2.5 * rPath && lPath > 0.05) return true;
+    if (rPath > 2.5 * lPath) return false;
+    return null;
   }
 
   /** Даяр белги ырааттуулугу (N×D) боюнча таануу. */
   classifySequence(q: Float32Array): Recognition | null {
+    const d = this.rank(q, undefined, false);
+    return d ? toRecognition(d) : null;
+  }
+
+  private rank(q: Float32Array, include: Iterable<string> | undefined, mirrored: boolean, maxDist = Infinity, topK = 0, coarse = 0): DetailedRecognition | null {
     const C = this.glosses.length;
     if (!C) return null;
+    // topK берилсе: так эсептелген класстардын K-чы эң жакшы аралыгы да кесүү чеги (DP үчүн жетиштүү)
+    const kth: number[] = [];
+    const kthCut = () => (topK > 0 && kth.length >= topK ? kth[topK - 1] : Infinity);
+    let active = this.active;
+    if (include) {
+      const inc = new Set(include);
+      if (inc.size) {
+        active = active.slice();
+        for (let i = 0; i < active.length; i++) if (inc.has(this.templates[i].gloss)) active[i] = 1;
+      }
+    }
+    const userBias = this.opts.userBias;
     const k = this.opts.k;
     // Колдонуучунун үлгүлөрү: класс боюнча эң жакын k аралык (өсүү тартибинде) — k-NN орточо.
     // Китепкана: класстын эң жакын үлгүсү (бир глосстун варианттары башка-башка жест болушу мүмкүн,
@@ -299,10 +508,36 @@ export class SignClassifier {
     // 2-баскыч: ошол тартипте толук LB (эрте токтотуу менен), андан кийин гана DTW.
     const lb0 = new Float64Array(T);
     const order = new Array<number>(T);
-    for (let i = 0; i < T; i++) {
-      lb0[i] = this.lbKeogh(q, this.templates[i], qz, 4);
-      order[i] = i;
+    let nAct = 0;
+    if (coarse > 0) {
+      // 1-баскыч: орун белгилери боюнча арзан DTW → эң жакын `coarse` үлгү (колдонуучунун үлгүлөрү,
+      // кошулган (include) глосстор ар дайым калат)
+      const inc = include ? new Set(include) : null;
+      const cd = new Float64Array(T).fill(Infinity);
+      const cand: number[] = [];
+      for (let i = 0; i < T; i++) {
+        if (!active[i]) continue;
+        const t = this.templates[i];
+        if (t.origin === "user" || (inc && inc.has(t.gloss))) { cd[i] = -1; cand.push(i); continue; }
+        cd[i] = this.dtwDense(q, t.seq);
+        cand.push(i);
+      }
+      cand.sort((a, b) => cd[a] - cd[b]);
+      // бир глосстун бир нече үлгүсү болсо, эң жакшысы гана саналат — глосс боюнча `coarse`
+      const seen = new Set<string>();
+      for (const i of cand) {
+        const t = this.templates[i];
+        if (cd[i] >= 0 && seen.size >= coarse && !seen.has(t.gloss)) { active = active === this.active ? active.slice() : active; active[i] = 0; continue; }
+        seen.add(t.gloss);
+      }
     }
+    for (let i = 0; i < T; i++) {
+      if (!active[i]) continue;
+      lb0[i] = this.lbKeogh(q, this.templates[i], qz, 4);
+      if (this.templates[i].origin === "user") lb0[i] *= userBias;
+      order[nAct++] = i;
+    }
+    order.length = nAct;
     // Жарым LB 8 кадр боюнча — бардык 32 кадрдагы чекке болжол менен ×4; тартип ошол боюнча
     // (кесүү үчүн чыныгы чек lb0 колдонулат). Тартип кайсы болсо да жыйынтык ошол эле.
     order.sort((a, b) => lb0[a] - lb0[b]);
@@ -320,19 +555,24 @@ export class SignClassifier {
       const u = user[t.cls];
       const classCut = isBank ? bankBest[t.cls] : u.length < k ? Infinity : u[k - 1];
       if (lb0[i] >= classCut) continue;
-      if (lb0[i] > globalBest + margin) {
+      const hardCut = Math.min(maxDist, globalBest + margin, kthCut());
+      if (lb0[i] >= hardCut) {
         // Бул үлгү эч качан жеңбейт; аралыгы катары төмөнкү чекти жазабыз (салымы ~0)
-        approx(t, lb0[i]);
+        approx(t, Math.max(lb0[i], hardCut));
         continue;
       }
-      const cutoff = Math.min(classCut, globalBest + margin);
-      const lb = this.lbKeogh(q, t, qz, 1, cutoff);
+      const cutoff = Math.min(classCut, hardCut);
+      const lb = this.lbKeogh(q, t, qz, 1, isBank ? cutoff : cutoff / userBias) * (isBank ? 1 : userBias);
       if (lb >= cutoff) {
         approx(t, Math.max(lb0[i], cutoff));
         continue;
       }
-      const d = this.dtw(q, t.seq, cutoff, qz, t.zero);
-      if (Number.isFinite(d)) exact[t.cls] = 1;
+      let d = this.dtw(q, t.seq, isBank ? cutoff : cutoff / userBias, qz, t.zero);
+      if (!isBank) d *= userBias;
+      if (Number.isFinite(d)) {
+        if (!exact[t.cls] && topK > 0) insertSorted(kth, d, topK);
+        exact[t.cls] = 1;
+      }
       const dd = Number.isFinite(d) ? d : Math.max(lb, cutoff);
       if (isBank) bankBest[t.cls] = Math.min(bankBest[t.cls], dd);
       else insertSorted(u, dd, k);
@@ -347,8 +587,9 @@ export class SignClassifier {
         for (const v of b) s += v;
         d = Math.min(d, s / b.length);
       }
-      // так эсептелбеген класс (төмөнкү чек гана) — ал margin'ден алыс экени белгилүү
-      dist[c] = exact[c] ? d : Math.max(d, globalBest + margin);
+      // так эсептелбеген класс (төмөнкү чек гана) — ал margin'ден алыс экени белгилүү;
+      // активдүү эмес класс (эч бир үлгүсү каралган жок) — Infinity
+      dist[c] = exact[c] ? d : Number.isFinite(d) ? Math.max(d, Math.min(globalBest + margin, maxDist, kthCut())) : Infinity;
     }
     // softmax
     let dmin = Infinity, imin = 0;
@@ -365,13 +606,23 @@ export class SignClassifier {
     // четке кагуу: класстын адаттагы ички аралыгына салыштыруу
     const ratio = dmin / this.typical[imin];
     const accept = 1 / (1 + Math.exp((ratio - this.opts.rejectRatio) * this.opts.rejectSharpness));
-    const ranked = Array.from({ length: C }, (_, c) => c).sort((a, b) => dist[a] - dist[b]);
-    const conf = (c: number) => round3((probs[c] / Z) * accept);
+    const ranked: number[] = [];
+    for (let c = 0; c < C; c++) if (Number.isFinite(dist[c])) ranked.push(c);
+    ranked.sort((a, b) => dist[a] - dist[b]);
+    if (!ranked.length) return null;
+    // эч бир класс так эсептелген жок (баары maxDist'тен алыс) — ишеним 0, аралыктар чек боюнча
+    const conf = (c: number) => (Z > 0 ? round3((probs[c] / Z) * accept) : 0);
     return {
-      gloss: this.glosses[ranked[0]],
-      confidence: conf(ranked[0]),
-      alternatives: ranked.slice(1, 5).map((c) => ({ gloss: this.glosses[c], confidence: conf(c) })),
+      ranked: ranked.map((c) => ({ gloss: this.glosses[c], dist: dist[c], confidence: conf(c), exact: !!exact[c] })),
+      ratio,
+      mirrored,
     };
+  }
+
+  /** Класстын адаттагы ички аралыгы (четке кагуу чеги ушуга карата) */
+  typicalFor(gloss: string): number {
+    const c = this.glosses.indexOf(gloss);
+    return c < 0 ? NaN : this.typical[c];
   }
 
   /** Диагностика: акыркы калибровканын маанилери. */
@@ -457,6 +708,36 @@ export class SignClassifier {
       if (sum > limit) return Infinity;
     }
     return sum / n;
+  }
+
+  /** Орун белгилери (DENSE_DIMS: бар-жок + билек + чыканак) боюнча гана DTW — арзан алдын ала издөө. */
+  private dtwDense(a: Float32Array, b: Float32Array): number {
+    const { n, D, r } = this;
+    let prev = this.prev, cur = this.cur;
+    prev.fill(Infinity);
+    const K = DENSE_DIMS.length;
+    for (let i = 0; i < n; i++) {
+      cur.fill(Infinity);
+      const lo = Math.max(0, i - r), hi = Math.min(n - 1, i + r);
+      const ao = i * D;
+      for (let j = lo; j <= hi; j++) {
+        const bo = j * D;
+        let s = 0;
+        for (let k = 0; k < K; k++) { const d = DENSE_DIMS[k]; const e = a[ao + d] - b[bo + d]; s += e * e; }
+        let m: number;
+        if (i === 0 && j === 0) m = 0;
+        else {
+          m = prev[j];
+          if (j > 0) {
+            if (cur[j - 1] < m) m = cur[j - 1];
+            if (prev[j - 1] < m) m = prev[j - 1];
+          }
+        }
+        cur[j] = Math.sqrt(s) + m;
+      }
+      const tmp = prev; prev = cur; cur = tmp;
+    }
+    return prev[n - 1] / n;
   }
 
   /** Sakoe-Chiba тилкеси менен DTW. Сап минимуму cutoff'тон ашса — Infinity (эрте токтотуу). */
@@ -559,6 +840,22 @@ export class SignClassifier {
     }
     this.temperature = prior ? prior.temperature : this.opts.tempScale * global;
   }
+}
+
+/** Эки кадрдын ортосундагы манжа учтарынын орточо жылышы (билекке салыштырмалуу), м */
+function handDelta(a: Vec3[], b: Vec3[]): number {
+  let s = 0;
+  for (const k of [4, 8, 12, 16, 20]) s += Math.hypot(a[k][0] - a[0][0] - (b[k][0] - b[0][0]), a[k][1] - a[0][1] - (b[k][1] - b[0][1]), a[k][2] - a[0][2] - (b[k][2] - b[0][2]));
+  return s / 5;
+}
+
+function toRecognition(d: DetailedRecognition): Recognition {
+  const r = d.ranked;
+  return {
+    gloss: r[0].gloss,
+    confidence: r[0].confidence,
+    alternatives: r.slice(1, 5).map((c) => ({ gloss: c.gloss, confidence: c.confidence })),
+  };
 }
 
 function insertSorted(arr: number[], v: number, k: number): void {

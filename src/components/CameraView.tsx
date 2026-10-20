@@ -35,21 +35,30 @@ export function CameraView(props: {
         let frames = 0;
         let last = performance.now();
         let lastVideoTime = -1;
+        let ctx: CanvasRenderingContext2D | null = null;
+        const v0 = video.current!;
+        // Жаңы видео кадры келгенде гана иштейбиз: requestVideoFrameCallback (болсо), болбосо rAF.
+        const hasRvfc = "requestVideoFrameCallback" in v0;
+        const schedule = (fn: () => void) => {
+          if (hasRvfc) raf = (v0 as HTMLVideoElement & { requestVideoFrameCallback: (cb: () => void) => number }).requestVideoFrameCallback(fn);
+          else raf = requestAnimationFrame(fn);
+        };
         const loop = () => {
-          raf = requestAnimationFrame(loop);
+          if (cancelled) return;
+          schedule(loop);
           const v = video.current;
           const c = canvas.current;
           if (!v || !c || v.readyState < 2 || v.currentTime === lastVideoTime) return;
           lastVideoTime = v.currentTime;
           const now = performance.now();
           const res = t.detect(v, now);
-          if (c.width !== c.clientWidth * devicePixelRatio) {
-            c.width = c.clientWidth * devicePixelRatio;
-            c.height = c.clientHeight * devicePixelRatio;
+          const cw = Math.round(c.clientWidth * devicePixelRatio), ch = Math.round(c.clientHeight * devicePixelRatio);
+          if (c.width !== cw || c.height !== ch) { c.width = cw; c.height = ch; ctx = null; }
+          ctx ??= c.getContext("2d");
+          if (ctx) {
+            ctx.clearRect(0, 0, c.width, c.height);
+            drawOverlay(ctx, res, { mirrored: true, width: c.width, height: c.height, accent: props.accent });
           }
-          const ctx = c.getContext("2d")!;
-          ctx.clearRect(0, 0, c.width, c.height);
-          drawOverlay(ctx, res, { mirrored: true, width: c.width, height: c.height, accent: props.accent });
           if (res) onFrame.current?.(res);
           frames++;
           if (now - last > 1000) { setFps(Math.round((frames * 1000) / (now - last))); frames = 0; last = now; }
@@ -66,6 +75,8 @@ export function CameraView(props: {
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf);
+      const v = video.current as (HTMLVideoElement & { cancelVideoFrameCallback?: (h: number) => void }) | null;
+      v?.cancelVideoFrameCallback?.(raf);
       stopCamera(stream);
       tracker.current?.close();
       tracker.current = null;

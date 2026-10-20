@@ -29,6 +29,23 @@ const POSE_MIRROR_PAIRS: [number, number][] = [
 
 export const RESAMPLE_N = 32;
 
+/** Белгилердин версиясы — өзгөргөндө templates.bin кайра түзүлүшү керек (templates.ts текшерет) */
+export const FEATURE_VERSION = 2;
+
+/**
+ * Белгилердин варианттары (эксперимент үчүн; tools/rsl_import/livereplay.ts FEAT= менен өзгөртөт).
+ *   frame: "yaw" — ийин сызыгы боюнча y огунун айланасында гана түздөө (эски);
+ *          "full" — ийин сызыгы + дене огу (ийин→жамбаш): камеранын ийилишине (pitch) да туруктуу.
+ *   posNorm: билек/чыканак ордунун өлчөм бирдиги — "shoulder" (ийин туурасы), "arm" (колдун узундугу,
+ *          клип боюнча медиана), "mix" (экөөнүн орточосу).
+ *   sideOrigin: билек орду ошол эле тараптын ийинине салыштырмалуу (true) же ийиндердин ортосуна (false).
+ */
+export const FEATURE_CONFIG = {
+  frame: "full" as "yaw" | "full",
+  posNorm: "mix" as "shoulder" | "arm" | "mix",
+  sideOrigin: false,
+};
+
 /** Белги топторунун салмактары (DTW аралыгындагы салымы) */
 export const FEATURE_WEIGHTS = {
   presence: 0.6,
@@ -50,6 +67,13 @@ export interface FeatureOptions {
   n?: number;
   /** Кол ушунча кадрдан аз жоголсо, тешик интерполяцияланат (демейки 6) */
   maxGap?: number;
+  /**
+   * Себептүү (causal) EMA жылмалоо: жаңы = мурунку × smooth + учурдагы × (1 − smooth), 0 — өчүк.
+   * Түз эфирдеги ызы-чуулуу кадрларды китепкананын жылмаланган клиптерине жакындатат.
+   */
+  smooth?: number;
+  /** Өлчөм бирдиги (м), клип боюнча эсептөөнүн ордуна (сүйлөмдүн бөлүктөрү үчүн бирдей болсун) */
+  scale?: number;
 }
 
 // ───────────────────────── күзгү ─────────────────────────
@@ -132,44 +156,116 @@ export function fillGaps(frames: MocapFrame[], maxGap = 6): MocapFrame[] {
   return out;
 }
 
+/** Себептүү EMA жылмалоо (кадр жок болсо абал кайра башталат). alpha — мурункунун салмагы. */
+export function smoothFrames(frames: MocapFrame[], alpha: number): MocapFrame[] {
+  if (!(alpha > 0)) return frames;
+  const a = Math.min(0.95, alpha);
+  const keys = ["leftHand", "rightHand", "pose"] as const;
+  const state: Record<(typeof keys)[number], Vec3[] | null> = { leftHand: null, rightHand: null, pose: null };
+  return frames.map((f) => {
+    const out: MocapFrame = { ...f };
+    for (const key of keys) {
+      const cur = f[key];
+      const prev = state[key];
+      if (!cur) { state[key] = null; continue; }
+      if (!prev || prev.length !== cur.length) { state[key] = cur; continue; }
+      const sm = lerpVecs(cur, prev, a);
+      out[key] = sm;
+      state[key] = sm;
+    }
+    return out;
+  });
+}
+
 // ───────────────────────── бир кадрдын белгилери ─────────────────────────
 
 interface BodyFrame {
   /** ийиндердин ортосу */
   cx: number; cy: number; cz: number;
-  /** 1 / ийиндин туурасы */
+  /** 1 / өлчөм бирдиги (ийин туурасы же колдун узундугу) */
   inv: number;
-  /** ийин сызыгынын y огунун айланасындагы буруусу (cos, sin) */
-  cos: number; sin: number;
+  /** ортонормалдуу дене системасы: ex (оңдон солго), ey (өйдө), ez (камерага) */
+  ex: Vec3; ey: Vec3; ez: Vec3;
 }
 
-function bodyFrame(pose: Vec3[] | null): BodyFrame | null {
+const norm3 = (v: Vec3): Vec3 => {
+  const n = Math.hypot(v[0], v[1], v[2]) || 1;
+  return [v[0] / n, v[1] / n, v[2] / n];
+};
+
+/**
+ * Дененин системасы. scale — өлчөм бирдиги (м); берилбесе ийин туурасы.
+ * frame "yaw": ийин сызыгын xz-тегиздигинде +x огуна буруу (y огу өзгөрбөйт);
+ * frame "full": ийин сызыгы = ex, дене огу (жамбаш→ийин) = ey — камера ийилсе да бирдей.
+ */
+function bodyFrame(pose: Vec3[] | null, scale?: number): BodyFrame | null {
   if (!pose || pose.length < 25) return null;
   const l = pose[POSE.L_SHOULDER], r = pose[POSE.R_SHOULDER];
   const dx = l[0] - r[0], dy = l[1] - r[1], dz = l[2] - r[2];
   const w = Math.hypot(dx, dy, dz);
   if (!(w > 1e-4)) return null;
-  // +x = адамдын сол тарабы, демек l - r ≈ +x. Анын xz-проекциясын +x огуна буруйбуз.
-  const h = Math.hypot(dx, dz) || 1;
-  return {
-    cx: (l[0] + r[0]) / 2, cy: (l[1] + r[1]) / 2, cz: (l[2] + r[2]) / 2,
-    inv: 1 / w,
-    cos: dx / h, sin: dz / h,
-  };
+  const cx = (l[0] + r[0]) / 2, cy = (l[1] + r[1]) / 2, cz = (l[2] + r[2]) / 2;
+  let ex: Vec3, ey: Vec3, ez: Vec3;
+  if (FEATURE_CONFIG.frame === "yaw") {
+    const h = Math.hypot(dx, dz) || 1;
+    const c = dx / h, s = dz / h;
+    ex = [c, 0, s]; ey = [0, 1, 0]; ez = [-s, 0, c];
+  } else {
+    ex = norm3([dx, dy, dz]);
+    const hx = (pose[POSE.L_HIP][0] + pose[POSE.R_HIP][0]) / 2, hy = (pose[POSE.L_HIP][1] + pose[POSE.R_HIP][1]) / 2, hz = (pose[POSE.L_HIP][2] + pose[POSE.R_HIP][2]) / 2;
+    let up: Vec3 = [cx - hx, cy - hy, cz - hz];
+    if (!(Math.hypot(up[0], up[1], up[2]) > 0.3 * w)) up = [0, 1, 0];
+    const d = up[0] * ex[0] + up[1] * ex[1] + up[2] * ex[2];
+    ey = norm3([up[0] - d * ex[0], up[1] - d * ex[1], up[2] - d * ex[2]]);
+    ez = [ex[1] * ey[2] - ex[2] * ey[1], ex[2] * ey[0] - ex[0] * ey[2], ex[0] * ey[1] - ex[1] * ey[0]];
+  }
+  return { cx, cy, cz, inv: 1 / (scale ?? w), ex, ey, ez };
 }
 
-/** Чекитти дененин системасына которот (ийин ортосу = 0, ийин туурасы = 1). */
-function toBody(b: BodyFrame, p: Vec3, out: Float32Array, o: number, w: number): void {
-  const x = (p[0] - b.cx) * b.inv, y = (p[1] - b.cy) * b.inv, z = (p[2] - b.cz) * b.inv;
-  // y огунун айланасында -θ бурулуш: θ = atan2(sin, cos) (x→z)
-  out[o] = (x * b.cos + z * b.sin) * w;
-  out[o + 1] = y * w;
-  out[o + 2] = (-x * b.sin + z * b.cos) * w;
+/** Чекитти дененин системасына которот (ийин ортосу = 0, өлчөм бирдиги = 1). */
+function toBody(b: BodyFrame, p: Vec3, out: Float32Array, o: number, w: number, origin?: Vec3): void {
+  const x = p[0] - (origin ? origin[0] : b.cx), y = p[1] - (origin ? origin[1] : b.cy), z = p[2] - (origin ? origin[2] : b.cz);
+  const k = b.inv * w;
+  out[o] = (x * b.ex[0] + y * b.ex[1] + z * b.ex[2]) * k;
+  out[o + 1] = (x * b.ey[0] + y * b.ey[1] + z * b.ey[2]) * k;
+  out[o + 2] = (x * b.ez[0] + y * b.ez[1] + z * b.ez[2]) * k;
+}
+
+/** Колдун узундугу (ийин→чыканак→билек), эки колдун орточосу; pose жок болсо NaN */
+function armLength(pose: Vec3[] | null): number {
+  if (!pose || pose.length < 25) return NaN;
+  const seg = (a: number, b: number) => Math.hypot(pose[a][0] - pose[b][0], pose[a][1] - pose[b][1], pose[a][2] - pose[b][2]);
+  return (seg(POSE.L_SHOULDER, POSE.L_ELBOW) + seg(POSE.L_ELBOW, POSE.L_WRIST) + seg(POSE.R_SHOULDER, POSE.R_ELBOW) + seg(POSE.R_ELBOW, POSE.R_WRIST)) / 2;
+}
+function shoulderWidth(pose: Vec3[] | null): number {
+  if (!pose || pose.length < 25) return NaN;
+  const l = pose[POSE.L_SHOULDER], r = pose[POSE.R_SHOULDER];
+  return Math.hypot(l[0] - r[0], l[1] - r[1], l[2] - r[2]);
+}
+
+/**
+ * Клип боюнча өлчөм бирдиги (м): FEATURE_CONFIG.posNorm боюнча ийин туурасынын жана/же колдун
+ * узундугунун медианасы. Колдун узундугу ийин туурасынын ~1.65 эсеси — 0.6 коэффициенти менен
+ * бирдиктер салыштырмалуу болот (салмактар өзгөрбөйт). undefined — кадр сайын ийин туурасы.
+ */
+export function clipScale(frames: MocapFrame[]): number | undefined {
+  const mode = FEATURE_CONFIG.posNorm;
+  if (mode === "shoulder") return undefined;
+  const sw: number[] = [], al: number[] = [];
+  for (const f of frames) {
+    const w = shoulderWidth(f.pose), a = armLength(f.pose);
+    if (w > 1e-4) sw.push(w);
+    if (a > 1e-4) al.push(a);
+  }
+  if (!sw.length || !al.length) return undefined;
+  const med = (xs: number[]) => { xs.sort((p, q) => p - q); return xs[xs.length >> 1]; };
+  const w = med(sw), a = 0.6 * med(al);
+  return mode === "arm" ? a : 0.5 * (w + a);
 }
 
 function writeHand(
   out: Float32Array, o: number, hand: Vec3[] | null, body: BodyFrame | null,
-  pose: Vec3[] | null, wristIdx: number, elbowIdx: number,
+  pose: Vec3[] | null, wristIdx: number, elbowIdx: number, shoulderIdx: number,
 ): void {
   const W = FEATURE_WEIGHTS;
   if (hand && hand.length >= 21) {
@@ -183,9 +279,9 @@ function writeHand(
       // Колдун багытын да дененин буруусуна карата түздөйбүз
       const x = (p[0] - w0[0]) * s, y = (p[1] - w0[1]) * s, z = (p[2] - w0[2]) * s;
       if (body) {
-        out[k] = x * body.cos + z * body.sin;
-        out[k + 1] = y;
-        out[k + 2] = -x * body.sin + z * body.cos;
+        out[k] = x * body.ex[0] + y * body.ex[1] + z * body.ex[2];
+        out[k + 1] = x * body.ey[0] + y * body.ey[1] + z * body.ey[2];
+        out[k + 2] = x * body.ez[0] + y * body.ez[1] + z * body.ez[2];
       } else {
         out[k] = x; out[k + 1] = y; out[k + 2] = z;
       }
@@ -196,18 +292,19 @@ function writeHand(
   }
   const po = o + 1 + SHAPE_DIMS;
   if (body && pose && pose.length > wristIdx) {
-    toBody(body, pose[wristIdx], out, po, W.position);
-    toBody(body, pose[elbowIdx], out, po + 3, W.elbow);
+    const origin = FEATURE_CONFIG.sideOrigin ? pose[shoulderIdx] : undefined;
+    toBody(body, pose[wristIdx], out, po, W.position, origin);
+    toBody(body, pose[elbowIdx], out, po + 3, W.elbow, origin);
   } else {
     out.fill(0, po, po + 6);
   }
 }
 
-/** Бир кадрдын белги вектору (узундугу FEATURE_DIM). */
-export function frameFeatures(f: MocapFrame, out = new Float32Array(FEATURE_DIM), offset = 0): Float32Array {
-  const body = bodyFrame(f.pose);
-  writeHand(out, offset, f.leftHand, body, f.pose, POSE.L_WRIST, POSE.L_ELBOW);
-  writeHand(out, offset + HAND_DIM, f.rightHand, body, f.pose, POSE.R_WRIST, POSE.R_ELBOW);
+/** Бир кадрдын белги вектору (узундугу FEATURE_DIM). scale — клиптин өлчөм бирдиги (clipScale). */
+export function frameFeatures(f: MocapFrame, out = new Float32Array(FEATURE_DIM), offset = 0, scale?: number): Float32Array {
+  const body = bodyFrame(f.pose, scale);
+  writeHand(out, offset, f.leftHand, body, f.pose, POSE.L_WRIST, POSE.L_ELBOW, POSE.L_SHOULDER);
+  writeHand(out, offset + HAND_DIM, f.rightHand, body, f.pose, POSE.R_WRIST, POSE.R_ELBOW, POSE.R_SHOULDER);
   return out;
 }
 
@@ -223,10 +320,12 @@ export function sequenceFeatures(frames: MocapFrame[], opts: FeatureOptions = {}
   if (!frames.length) return null;
   let src = opts.mirror ? frames.map(mirrorFrame) : frames;
   src = fillGaps(src, opts.maxGap ?? 6);
+  if (opts.smooth) src = smoothFrames(src, opts.smooth);
   const m = src.length;
   const D = FEATURE_DIM;
   const raw = new Float32Array(m * D);
-  for (let i = 0; i < m; i++) frameFeatures(src[i], raw, i * D);
+  const scale = opts.scale ?? clipScale(src);
+  for (let i = 0; i < m; i++) frameFeatures(src[i], raw, i * D, scale);
   return resample(raw, src.map((f) => f.t), n, D);
 }
 

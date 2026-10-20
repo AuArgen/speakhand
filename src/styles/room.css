@@ -590,3 +590,20 @@ label.settings-row { cursor: pointer; }
   background: var(--surface); border: 1px solid var(--border);
   color: var(--text-2); font-weight: 600; font-size: 14px;
 }
+
+/* Маектеш күтүлүүдө — башкы тилкенин астындагы так түшүндүрмө */
+.rm-wait {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 9px 16px; border: 0; border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text-2); font: inherit; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer;
+}
+.rm-wait-text { flex: 1; min-width: 0; }
+.rm-wait b { color: var(--text); font-family: var(--mono); letter-spacing: 0.04em; white-space: nowrap; }
+.rm-wait .spinner { width: 13px; height: 13px; flex: none; color: var(--accent); }
+.rm-wait-cta { margin-left: auto; color: var(--accent); font-weight: 800; white-space: nowrap; }
+.rm-wait:hover .rm-wait-cta { text-decoration: underline; }
+/* Телефондо башкы тилкеде күтүү белгиси гана (түшүндүрмө — жогорудагы тилкеде) */
+@media (max-width: 480px) {
+  .rm-person.waiting .rm-person-text { display: none; }
+}

@@ -1,67 +1,64 @@
-// Жест → текст → үн. Камера, MediaPipe, DTW классификатор.
+// Жест → текст → үн. Камера, MediaPipe, DTW классификатор + сүйлөм декодери (AI'сыз, браузерде).
+//
+// "Сүйлөм" режими (useSignCapture, utterance): бир нече жест катары менен көрсөтүлөт, жүрүп жатканда
+// болжолдуу сөздөр көрүнөт; эки кол түшкөндө сүйлөм декоддолуп, дароо кыргызча сүйлөм түзүлөт.
 import { useEffect, useRef, useState } from "react";
 import { CameraView } from "../components/CameraView";
 import { IconCamera, IconInfo, IconSpeaker, IconStop, IconTrash, IconSparkle, IconArrow } from "../components/icons";
 import { glossToSentence, type ClaudeModel } from "../lib/api";
 import { useStored } from "../lib/settings";
 import { speak } from "../lib/speech";
-import type { Recognition } from "../lib/types";
-import { useRecognizer } from "../lib/recognizer";
-import { SignSegmenter, type TrackResult } from "../vision";
+import type { MocapClip } from "../lib/types";
+import { setHandedness, setVocabularyMode, useRecognizer, useSignCapture, type UtteranceResult } from "../lib/recognizer";
 
 export function RecognizePage(props: { model: ClaudeModel; claudeReady: boolean; goStudio: () => void }) {
-  // Жалгыз таануу модели: китепкананын ~1400 үлгүсү + Студиядагы жаздыруулар (AI'сыз).
+  // Жалгыз таануу модели: китепкананын үлгүлөрү + Студиядагы жана жеке жаздыруулар (AI'сыз).
   const recognizer = useRecognizer();
-  const classifierRef = useRef(recognizer.classifier);
-  classifierRef.current = recognizer.classifier;
   const [on, setOn] = useState(false);
   const [face, setFace] = useStored("recFace", false);
-  const [threshold, setThreshold] = useStored("recThreshold", 0.55);
+  const [threshold, setThreshold] = useStored("recThreshold2", 0.45);
   const [autoSpeak, setAutoSpeak] = useStored("autoSpeak", true);
   const [words, setWords] = useState<string[]>([]);
-  const [last, setLast] = useState<Recognition | null>(null);
+  const [last, setLast] = useState<UtteranceResult | null>(null);
   const [rejected, setRejected] = useState(false);
-  const [signing, setSigning] = useState(false);
   const [sentence, setSentence] = useState("");
   const [composing, setComposing] = useState(false);
   const [voice, setVoice] = useState<"kyrgyz" | "browser" | "none" | null>(null);
 
   const vocabSize = recognizer.vocabulary;
-
-  const segmenter = useRef(new SignSegmenter());
   const thresholdRef = useRef(threshold);
   thresholdRef.current = threshold;
-  const pauseTimer = useRef<number>(0);
   const wordsRef = useRef(words);
   wordsRef.current = words;
   const composedFor = useRef("");
 
-  function onFrame(res: TrackResult) {
-    const seg = segmenter.current.push(res.frame);
-    const active = segmenter.current.active;
-    setSigning((prev) => (prev === active ? prev : active));
-    if (active) window.clearTimeout(pauseTimer.current);
-    if (!seg) return;
-    const r = classifierRef.current?.classify(seg);
-    if (!r) return;
-    setLast(r);
-    if (r.confidence >= thresholdRef.current) {
-      setRejected(false);
-      setWords((w) => [...w, r.gloss]);
-      // Колдонуучу 2.5 сек токтосо — сүйлөм түзөбүз.
-      window.clearTimeout(pauseTimer.current);
-      pauseTimer.current = window.setTimeout(() => compose(true), 2500);
-    } else {
-      setRejected(true);
-    }
-  }
+  const cap = useSignCapture({
+    active: on,
+    mode: "utterance",
+    onUtterance: (_clip: MocapClip, result: UtteranceResult | null) => {
+      if (!result || !result.gloss.length) return;
+      setLast(result);
+      // Сүйлөмдүн ишеними — эң начар жесттики; даяр сүйлөм дал келсе — кабыл алабыз
+      const ok = !!result.phrase || result.confidence >= thresholdRef.current * 0.8;
+      setRejected(!ok);
+      if (!ok) return;
+      const next = [...wordsRef.current, ...result.gloss];
+      setWords(next);
+      // Колдор түштү — сүйлөм дароо түзүлөт (даяр сүйлөм болсо — анын тексти)
+      void compose(true, next, result.phrase && wordsRef.current.length === 0 ? result.phrase.text : null);
+    },
+  });
 
-  async function compose(auto = false) {
-    const ws = wordsRef.current;
+  async function compose(auto = false, ws = wordsRef.current, ready: string | null = null) {
     if (!ws.length) return;
     const key = ws.join(" ");
     if (auto && composedFor.current === key) return;
     composedFor.current = key;
+    if (ready) {
+      setSentence(ready);
+      if (auto ? autoSpeak : true) setVoice(await speak(ready));
+      return;
+    }
     setComposing(true);
     try {
       const r = await glossToSentence(ws, { model: props.model });
@@ -80,19 +77,25 @@ export function RecognizePage(props: { model: ClaudeModel; claudeReady: boolean;
     setLast(null);
     setRejected(false);
     composedFor.current = "";
-    segmenter.current.reset();
+    cap.reset();
   }
 
-  useEffect(() => () => window.clearTimeout(pauseTimer.current), []);
-  useEffect(() => { if (!on) { segmenter.current.reset(); setSigning(false); } }, [on]);
+  useEffect(() => { if (!on) { setRejected(false); } }, [on]);
+
+  const signing = cap.signing;
+  const hyp = cap.hypothesis;
 
   return (
     <div className="grid-2">
       <div className="stack">
-        <CameraView active={on} face={face} onFrame={onFrame} accent="#ff9f6b">
+        <CameraView {...cap.cameraProps} face={face} accent="#ff9f6b">
           {on && (
             <div className="signal" aria-live="polite">
-              {signing ? <><span className="chip live" style={{ padding: 0, border: 0, background: "none" }}><span className="dot" /></span> Жест аныкталууда…</> : <>✋ Жест көрсөтүңүз</>}
+              {signing ? (
+                <><span className="chip live" style={{ padding: 0, border: 0, background: "none" }}><span className="dot" /></span> {hyp.length ? `${hyp.map((g) => g.replace(/^#/, "")).join(" ")}…` : "Жест аныкталууда…"}</>
+              ) : (
+                <>✋ Жесттерди көрсөтүп, бүткөндө эки колуңузду түшүрүңүз</>
+              )}
             </div>
           )}
           {!on && (
@@ -117,13 +120,32 @@ export function RecognizePage(props: { model: ClaudeModel; claudeReady: boolean;
               <span className="mono">{Math.round(threshold * 100)}%</span>
             </label>
           </div>
+          <div className="row" style={{ marginTop: 10 }}>
+            <label className="switch" title="Күнүмдүк сүйлөшүү сөздүгү тезирээк жана тагыраак; бүт китепкана — 1280 жест">
+              <span className="muted">Сөздүк</span>
+              <select value={recognizer.vocabularyMode} onChange={(e) => setVocabularyMode(e.target.value as "conversation" | "all")}>
+                <option value="conversation">Сүйлөшүү (~280 жест)</option>
+                <option value="all">Бүт китепкана</option>
+              </select>
+            </label>
+            <label className="switch" title="Сол колдуу адам үчүн кадрлар күзгүдөй чагылдырылат">
+              <span className="muted">Негизги кол</span>
+              <select value={recognizer.handedness} onChange={(e) => setHandedness(e.target.value as "auto" | "right" | "left")}>
+                <option value="auto">Автоматтык</option>
+                <option value="right">Оң</option>
+                <option value="left">Сол</option>
+              </select>
+            </label>
+            <div className="spacer" />
+            <span className="muted">{recognizer.loading ? "Модель жүктөлүүдө…" : `${vocabSize} жест`}</span>
+          </div>
         </div>
       </div>
 
       <div className="stack">
         <div className="page-intro">
           <h1>Жест көрсөтүңүз — текст жана үн чыгат</h1>
-          <p>Ар бир жесттен кийин колуңузду бир аз түшүрүңүз — система жесттерди ошентип бөлүп тааныйт. Таанылган сөздөрдөн Claude табигый кыргызча сүйлөм түзөт.</p>
+          <p>Сүйлөмдү жесттер менен катары көрсөтүп, бүткөндө эки колуңузду түшүрүңүз — система сүйлөмдү ошондо тааныйт. Даяр сүйлөмдөр дароо, башкалары глосстордон түзүлөт.</p>
         </div>
 
         {!recognizer.loading && vocabSize === 0 && (
@@ -142,7 +164,8 @@ export function RecognizePage(props: { model: ClaudeModel; claudeReady: boolean;
             <button className="btn btn-sm btn-ghost" onClick={clear} disabled={!words.length}><IconTrash /> Тазалоо</button>
           </div>
           <div className="transcript" aria-live="polite">
-            {words.length ? words.map((w, i) => <span key={i} className="word">{w}</span>) : <span className="placeholder">Жесттер ушул жерде пайда болот…</span>}
+            {words.length ? words.map((w, i) => <span key={i} className="word">{w.replace(/^#/, "")}</span>) : <span className="placeholder">Жесттер ушул жерде пайда болот…</span>}
+            {signing && hyp.map((w, i) => <span key={`h${i}`} className="word" style={{ opacity: 0.5 }}>{w.replace(/^#/, "")}</span>)}
           </div>
           <div className="row" style={{ marginTop: 14 }}>
             <button className="btn btn-primary" onClick={() => compose(false)} disabled={!words.length || composing}>
@@ -155,7 +178,7 @@ export function RecognizePage(props: { model: ClaudeModel; claudeReady: boolean;
           </div>
           {sentence && (
             <div style={{ marginTop: 16 }}>
-              <div className="muted" style={{ marginBottom: 4 }}>Кыргызча сүйлөм {props.claudeReady ? "(Claude)" : ""}</div>
+              <div className="muted" style={{ marginBottom: 4 }}>Кыргызча сүйлөм {last?.phrase && composedFor.current === words.join(" ") && words.join(" ") === last.phrase.gloss.join(" ") ? "(даяр сүйлөм)" : props.claudeReady ? "(Claude)" : ""}</div>
               <div style={{ fontSize: 22, fontWeight: 700 }}>{sentence}</div>
               {voice === "browser" && <div className="muted" style={{ marginTop: 6 }}>Кыргызча TTS кызматы иштебей жатат — браузердин үнү колдонулду.</div>}
             </div>
@@ -164,18 +187,20 @@ export function RecognizePage(props: { model: ClaudeModel; claudeReady: boolean;
 
         <div className="card card-pad">
           <div className="card-head">
-            <h2 className="card-title">Акыркы жест</h2>
+            <h2 className="card-title">Акыркы сүйлөм</h2>
             {last && <span className={`chip ${rejected ? "bad" : "ok"}`}><span className="dot" />{rejected ? "Кабыл алынган жок" : "Кабыл алынды"}</span>}
           </div>
           {last ? (
             <div className="candidates">
-              {[{ gloss: last.gloss, confidence: last.confidence }, ...last.alternatives].slice(0, 4).map((c) => (
-                <div className="cand" key={c.gloss}>
-                  <span>{c.gloss}</span>
+              {last.segments.map((c, i) => (
+                <div className="cand" key={`${c.gloss}-${i}`}>
+                  <span>{c.gloss.replace(/^#/, "")} <span className="muted mono">{(c.startMs / 1000).toFixed(1)}–{(c.endMs / 1000).toFixed(1)} с</span></span>
                   <div className="bar"><i style={{ width: `${Math.round(c.confidence * 100)}%` }} /></div>
                   <span className="mono">{Math.round(c.confidence * 100)}%</span>
                 </div>
               ))}
+              {last.phrase && <p className="muted" style={{ margin: "8px 0 0" }}>Даяр сүйлөм: «{last.phrase.text}»</p>}
+              {last.stats && <p className="muted mono" style={{ margin: "6px 0 0", fontSize: 12 }}>декод {last.stats.decodeMs.toFixed(0)} мс</p>}
             </div>
           ) : (
             <p className="muted" style={{ margin: 0 }}>

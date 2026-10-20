@@ -7,6 +7,7 @@ import { IconChevron, IconKeyboard, IconPhone, IconUsers } from "../components/r
 import { navigate, roomHash } from "../hooks/useHashRoute";
 import { loadName, saveName, useRecentRooms } from "../hooks/useRecentRooms";
 import { checkRoom, createRoom, type Role, type RoomSummary } from "../lib/room";
+import { IconGrad } from "../components/learn/learnIcons";
 
 type Mode = "idle" | "create" | "join";
 
@@ -150,6 +151,15 @@ export function HomePage() {
           )}
         </div>
       )}
+
+      <a className="learn-promo" href="#/learn">
+        <span className="learn-promo-icon"><IconGrad /></span>
+        <span className="learn-promo-text">
+          <b>Жест тилин үйрөнүү</b>
+          <small>1200+ жест темалар боюнча: аватар көрсөтөт, сиз кайталайсыз — камера текшерет. Тест менен өзүңүздү сынаңыз.</small>
+        </span>
+        <span className="learn-promo-go"><IconArrow /></span>
+      </a>
 
       {rooms.length > 0 && (
         <section className="recent" aria-label="Акыркы бөлмөлөр">

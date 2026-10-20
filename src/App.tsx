@@ -1,6 +1,7 @@
 import { Component, lazy, Suspense, useCallback, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from "react";
 import { IconBook, IconHand, IconMic, IconMoon, IconRecord, IconSun, Logo } from "./components/icons";
 import { IconChevron, IconHome, IconTools, IconUsers } from "./components/room/roomIcons";
+import { IconGrad } from "./components/learn/learnIcons";
 import { seedIfEmpty } from "./data/store";
 import { syncLibrary, type LibraryProgress } from "./data/library";
 import { DEMO_SIGNS } from "./avatar/seeds";
@@ -15,6 +16,7 @@ const TranslatePage = lazy(() => import("./pages/TranslatePage").then((m) => ({ 
 const RecognizePage = lazy(() => import("./pages/RecognizePage").then((m) => ({ default: m.RecognizePage })));
 const StudioPage = lazy(() => import("./pages/StudioPage").then((m) => ({ default: m.StudioPage })));
 const DictionaryPage = lazy(() => import("./pages/DictionaryPage").then((m) => ({ default: m.DictionaryPage })));
+const LearnPage = lazy(() => import("./pages/LearnPage").then((m) => ({ default: m.LearnPage })));
 
 
 const TOOLS: { id: ToolId; label: string; hint: string; icon: typeof IconMic }[] = [
@@ -79,15 +81,16 @@ export function App() {
     );
   }
 
-  if (route.kind === "home") {
+  if (route.kind === "home" || route.kind === "learn") {
+    const learn = route.kind === "learn";
     return (
-      <div className="app home-app">
+      <div className={`app home-app ${learn ? "learn-app" : ""}`}>
         <header className="topbar slim">
-          <a className="brand" href="#/" aria-label="Сүйлө — башкы бет">
+          <a className="brand" href={learn ? "#/learn" : "#/"} aria-label={learn ? "Үйрөнүү — темалар" : "Сүйлө — башкы бет"}>
             <Logo className="brand-mark" />
             <div>
               Сүйлө
-              <small>Кыргыз жест тили котормочу</small>
+              <small>{learn ? "Жест тилин үйрөнүү" : "Кыргыз жест тили котормочу"}</small>
             </div>
           </a>
           <div className="topbar-right">
@@ -102,8 +105,16 @@ export function App() {
             </button>
           </div>
         </header>
-        <main className="main">
-          <HomePage />
+        <main className={`main ${learn ? "learn-main" : ""}`}>
+          {learn ? (
+            <ErrorBoundary>
+              <Suspense fallback={<div className="empty"><span className="spinner" /></div>}>
+                <LearnPage path={route.path} theme={theme} />
+              </Suspense>
+            </ErrorBoundary>
+          ) : (
+            <HomePage />
+          )}
         </main>
         {toast && <div className="toast" role="status">{toast}</div>}
       </div>
@@ -187,6 +198,10 @@ function ToolsMenu() {
       </button>
       {open && (
         <div className="menu-pop" role="menu">
+          <button role="menuitem" className="menu-item" onClick={() => { setOpen(false); navigate("/learn"); }}>
+            <span className="menu-ic"><IconGrad /></span>
+            <span><b>Үйрөнүү</b><small>Жест тилин үйрөнүү жана өзүңүздү текшерүү</small></span>
+          </button>
           {TOOLS.map(({ id, label, hint, icon: I }) => (
             <button key={id} role="menuitem" className="menu-item" onClick={() => { setOpen(false); navigate(`/${id}`); }}>
               <span className="menu-ic"><I /></span>

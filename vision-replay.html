@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ky">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <title>Vision replay — видеодон түз эфир сыяктуу</title>
+    <style>
+      :root { color-scheme: dark; --bg: #0b0f14; --panel: #121821; --line: #223042; --fg: #e6edf3; --mute: #8b9bb0; --ok: #4fe3c1; --bad: #ff6b81; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, sans-serif; }
+      header { display: flex; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+      header h1 { font-size: 15px; margin: 0 12px 0 0; font-weight: 600; }
+      button, input, select { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font: inherit; }
+      #status { color: var(--mute); }
+      main { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 16px; padding: 16px; }
+      @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+      .stage { position: relative; background: #000; border-radius: 12px; overflow: hidden; aspect-ratio: 16 / 9; }
+      .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+      .badge { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,.55); padding: 4px 10px; border-radius: 999px; font: 12px ui-monospace, monospace; }
+      .badge.seg { left: auto; right: 10px; }
+      .badge.seg.on { background: rgba(79,227,193,.85); color: #002; }
+      aside { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+      .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+      .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--mute); margin: 0 0 8px; }
+      pre { margin: 0; font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; word-break: break-word; max-height: 50vh; overflow: auto; }
+      .ok { color: var(--ok); } .bad { color: var(--bad); } .mute { color: var(--mute); }
+      video { display: none; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>vision-replay</h1>
+      <label>сабак <input id="lesson" type="number" min="1" max="28" value="3" style="width: 60px" /></label>
+      <label>баштан <input id="from" type="number" value="0" style="width: 70px" /> с</label>
+      <label>чейин <input id="to" type="number" value="60" style="width: 70px" /> с</label>
+      <label>режим <select id="mode"><option value="sign">жест</option><option value="utterance">сүйлөм</option></select></label>
+      <label>сөздүк <select id="vocab"><option value="conv">сүйлөшүү</option><option value="all">баары</option></select></label>
+      <label>бурмалоо <input id="perturb" placeholder="flip,zoom1.3,shift0.1,res360,fps15,bright1.3" style="width: 240px" /></label>
+      <label>ылдамдык <input id="rate" type="number" step="0.25" value="1" style="width: 60px" /></label>
+      <button id="run">Иштет</button>
+      <span id="status">…</span>
+    </header>
+    <main>
+      <div class="stage">
+        <video id="video" muted playsinline></video>
+        <canvas id="frame"></canvas>
+        <canvas id="overlay"></canvas>
+        <div class="badge" id="fps">— fps</div>
+        <div class="badge seg" id="seg">rest</div>
+      </div>
+      <aside>
+        <div class="card"><h2>Жыйынтык</h2><pre id="summary" class="mute">—</pre></div>
+        <div class="card"><h2>Жесттер (чындык → таанылды)</h2><pre id="log" class="mute">—</pre></div>
+      </aside>
+    </main>
+    <script type="module" src="/src/vision/replay.ts"></script>
+  </body>
+</html>

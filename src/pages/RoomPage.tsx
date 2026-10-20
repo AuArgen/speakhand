@@ -264,7 +264,19 @@ function RoomInner(props: {
     />
   );
 
-  const banner = <ConnectionBanner state={room.state} error={room.error} welcomed={welcomed} onRetry={room.reconnect} onHome={() => navigate("/")} />;
+  const banner = (
+    <>
+      <ConnectionBanner state={room.state} error={room.error} welcomed={welcomed} onRetry={room.reconnect} onHome={() => navigate("/")} />
+      {/* Маектеш али кире элек — так айтабыз (телефондо башкы тилкеде орун жок) */}
+      {welcomed && room.state === "open" && !room.partner && (
+        <button className="rm-wait" onClick={() => setSheet("invite")}>
+          <span className="spinner" aria-hidden />
+          <span className="rm-wait-text">Маектеш али кире элек · код <b>{code.slice(0, 3)} {code.slice(3)}</b></span>
+          <span className="rm-wait-cta">Чакыруу →</span>
+        </button>
+      )}
+    </>
+  );
   const disabled = Boolean(room.error && (room.error.code === "not_found" || room.error.code === "room_full"));
 
   if (role === "speaker") {
@@ -326,6 +338,7 @@ function RoomInner(props: {
             settings={settings.s}
           />
           </Suspense>
+          <a className="rm-learn-link" href="#/learn" target="_blank" rel="noopener">🎓 Жест тилин үйрөнүү жана машыгуу ↗</a>
         </aside>
       </div>
       {sheets}
